@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Does AI Make Us Smarter—or More Dependent? · An animated essay</title>
+  <meta name="description" content="A seven-minute Three.js animated essay with English narration and optional Simplified Chinese subtitles.">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23082427'/%3E%3Ccircle cx='12' cy='16' r='6' fill='none' stroke='%23f2a33a' stroke-width='2.5'/%3E%3Ccircle cx='20' cy='16' r='6' fill='none' stroke='%237fe3c3' stroke-width='2.5'/%3E%3C/svg%3E">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./vendor/three/build/three.module.js",
+        "three/addons/": "./vendor/three/addons/"
+      }
+    }
+  </script>
+</head>
+<body class="at-start">
+  <div id="stage">
+    <canvas id="gl" aria-label="Animated essay"></canvas>
+    <div id="anchors" aria-hidden="true"></div>
+    <div id="overlays"></div>
+
+    <header id="hud">
+      <div id="chapter-chip"><span class="num">01</span><span class="title"></span><span class="zh-line"></span></div>
+      <div id="drama-badge" title="The students and events are fictional">Dramatization</div>
+    </header>
+
+    <div id="captions" aria-live="polite">
+      <p class="en"></p>
+      <p class="zh" lang="zh-Hans"></p>
+    </div>
+
+    <section id="start" aria-labelledby="start-title">
+      <div class="start-inner">
+        <p class="kicker">A seven-minute animated essay</p>
+        <h1 id="start-title">Does AI Make Us Smarter<span>—</span>or More Dependent?</h1>
+        <p class="zh-title" lang="zh-Hans">AI 让我们更聪明，还是更依赖？</p>
+        <p class="premise">Two fictional students work on one question: <em>if students who use AI receive higher grades, does that prove AI improves learning?</em></p>
+        <div class="start-actions">
+          <button id="start-play" class="primary"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>Play</button>
+          <label class="switch"><input type="checkbox" id="start-voice"><span></span>English narration</label>
+          <label class="switch"><input type="checkbox" id="start-zh"><span></span>中文字幕</label>
+        </div>
+        <p class="voice-note" id="voice-note">Narration uses an English voice from your browser or system, when one is available. Captions are always available.</p>
+        <ol class="toc" id="toc"></ol>
+        <p class="keys"><kbd>Space</kbd> play/pause · <kbd>←</kbd><kbd>→</kbd> 5 s · <kbd>↑</kbd><kbd>↓</kbd> chapter · <kbd>C</kbd> captions · <kbd>Z</kbd> 中文 · <kbd>N</kbd> narration · <kbd>F</kbd> fullscreen</p>
+      </div>
+    </section>
+
+    <div id="controls" role="group" aria-label="Playback controls">
+      <div id="seek" role="slider" tabindex="0" aria-label="Seek" aria-valuemin="0" aria-valuemax="420" aria-valuenow="0">
+        <div class="segments"></div>
+        <div class="thumb"></div>
+        <div class="tip"><b></b><span></span></div>
+      </div>
+      <div class="row">
+        <div class="left">
+          <button id="btn-play" class="icon" aria-label="Play"><svg class="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg><svg class="i-pause" viewBox="0 0 24 24"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg></button>
+          <button id="btn-prev" class="icon" aria-label="Previous chapter"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zM9.5 12 18 6v12z"/></svg></button>
+          <button id="btn-next" class="icon" aria-label="Next chapter"><svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2zM6 6l8.5 6L6 18z"/></svg></button>
+          <span id="time">0:00 / 7:00</span>
+        </div>
+        <div class="right">
+          <div class="menu-wrap">
+            <button id="btn-chapters" class="text" aria-haspopup="true" aria-expanded="false">Chapters</button>
+            <ul id="menu-chapters" class="menu" role="menu"></ul>
+          </div>
+          <div class="menu-wrap">
+            <button id="btn-speed" class="text" aria-haspopup="true" aria-expanded="false" aria-label="Playback speed">1×</button>
+            <ul id="menu-speed" class="menu" role="menu"></ul>
+          </div>
+          <button id="btn-cc" class="toggle" aria-pressed="true" title="English captions (C)">CC</button>
+          <button id="btn-zh" class="toggle" aria-pressed="false" title="Simplified Chinese subtitles (Z)" lang="zh-Hans">中文</button>
+          <div class="menu-wrap">
+            <button id="btn-voice" class="toggle" aria-pressed="false" title="English narration (N)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="wave" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>Voice</button>
+            <ul id="menu-voice" class="menu" role="menu"></ul>
+          </div>
+          <button id="btn-fs" class="icon" aria-label="Fullscreen (F)"><svg viewBox="0 0 24 24"><path d="M4 9V4h5v2H6v3zM15 4h5v5h-2V6h-3zM18 15h2v5h-5v-2h3zM4 15h2v3h3v2H4z"/></svg></button>
+        </div>
+      </div>
+    </div>
+
+    <div id="error" hidden></div>
+  </div>
+  <noscript><p class="noscript">This animated essay needs JavaScript and WebGL.</p></noscript>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
