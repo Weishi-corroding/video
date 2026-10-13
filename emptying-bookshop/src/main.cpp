@@ -10,6 +10,7 @@
 
 #include "chapters/chapters.h"
 #include "music.h"
+#include "pageturn.h"
 
 using namespace film;
 namespace fs = std::filesystem;
@@ -116,8 +117,19 @@ std::map<std::string, float> readDurations(const fs::path& file) {
   return m;
 }
 
+// A page turn: from t0 for dur seconds, the picture at t0 turns away to show the film going on beneath.
+struct Turn {
+  float t0, dur;
+};
+std::vector<Turn> pageTurns() {
+  std::vector<Turn> out;
+  for (const Chapter& ch : script::chapters())
+    if (ch.n > 1) out.push_back({ch.s - 0.35f, 1.5f});
+  return out;
+}
+
 // The soundtrack: the narration (resampled to 48 kHz) over the score, which dips while the voice speaks.
-Audio soundtrack(const fs::path& narration, bool withMusic, bool& voiced, const std::string& stems = "") {
+Audio soundtrack(const fs::path& narration, bool withMusic, const ScoreEvents& events, bool& voiced, const std::string& stems = "") {
   const int RATE = 48000;
   const float D = script::duration();
   Audio voice(RATE, 1, D);
@@ -138,12 +150,14 @@ Audio soundtrack(const fs::path& narration, bool withMusic, bool& voiced, const 
   mix.mix(voice, 0);
   if (!stems.empty()) voice.saveWav(stems + ".voice.wav");
   if (withMusic) {
-    Audio music = composeScore(RATE);
+    Audio music = composeScore(events, RATE);
     synth::applyGain(music, synth::duckingCurve(voice, RATE, music.frames(), 0.4f));
-    mix.mix(music, 0, 0.5f);
+    // Under a narrator the score sits about 10 LU below the voice; without one it carries the film.
+    const float level = voiced ? 0.5f : 0.9f;
+    mix.mix(music, 0, level);
     if (!stems.empty()) {
       Audio m = music;
-      for (float& x : m.samples) x *= 0.5f;
+      for (float& x : m.samples) x *= level;
       m.saveWav(stems + ".music.wav");
     }
   }
@@ -226,20 +240,6 @@ int main(int argc, char** argv) {
     for (const Cue& q : script::cues()) std::printf("%s\t%7.2f\t%7.2f\t%s\n", q.id.c_str(), q.s, q.e, q.text().c_str());
     return 0;
   }
-  if (!o.audioOnly.empty()) {
-    bool voiced;
-    fs::path p = o.audioOnly;
-    Audio a = soundtrack(narration, o.music, voiced, o.stems ? (p.parent_path() / p.stem()).string() : "");
-    if (!voiced) std::fprintf(stderr, "No narration found in %s.\n", narration.string().c_str());
-    if (p.has_parent_path()) fs::create_directories(p.parent_path());
-    if (!a.saveWav(p.string())) {
-      std::fprintf(stderr, "could not write %s\n", p.string().c_str());
-      return 1;
-    }
-    std::fprintf(stderr, "wrote %s (%.1f s)\n", p.string().c_str(), a.duration());
-    return 0;
-  }
-
   setFontFile(Font::Sans, (data / "fonts" / "Inter-Variable.ttf").string());
   setFontFile(Font::Serif, (data / "fonts" / "SourceSerif4-Variable.ttf").string());
   setFontFile(Font::SerifItalic, (data / "fonts" / "SourceSerif4-Italic-Variable.ttf").string());
@@ -264,7 +264,24 @@ int main(int argc, char** argv) {
              .chapter = std::make_tuple(script::tr("Chapter " + std::to_string(ch.n), std::string("第") + NUMERALS[ch.n - 1] + "章"), ch.title, ch.zh),
              .vis = [=](float t) { return win(t, start, start + 4.6f, 0.6f, 0.9f); }});
     }
+    // Every chapter after the first opens with a page turn, and the camera cuts under the page.
+    std::vector<Turn> turns = pageTurns();
+    for (const Turn& tr : turns) W->cutAt(tr.t0 + 0.02f);
     W->finalize();
+    ScoreEvents events;
+    for (const Turn& tr : turns) events.pageTurns.push_back(tr.t0);
+    events.flaps = W->popSounds();
+
+    if (!o.audioOnly.empty()) {
+      bool voiced;
+      fs::path p = o.audioOnly;
+      Audio a = soundtrack(narration, o.music, events, voiced, o.stems ? (p.parent_path() / p.stem()).string() : "");
+      if (!voiced) std::fprintf(stderr, "No narration found in %s.\n", narration.string().c_str());
+      if (p.has_parent_path()) fs::create_directories(p.parent_path());
+      if (!a.saveWav(p.string())) throw std::runtime_error("could not write " + p.string());
+      std::fprintf(stderr, "wrote %s (%.1f s)\n", p.string().c_str(), a.duration());
+      return 0;
+    }
 
     RendererOptions ro;
     ro.width = o.width;
@@ -276,14 +293,33 @@ int main(int argc, char** argv) {
     std::vector<uint8_t> frame((size_t)o.width * o.height * 4);
     const SafeArea safe = captions.safeArea();
 
-    auto renderAt = [&](float t) {
+    auto renderScene = [&](float t, uint8_t* dst) {
       W->update(t);
       for (auto& m : mods) m(t);
       W->applyFx();
       renderer.render(W->scene, W->camera, W->post);
-      std::memcpy(frame.data(), renderer.pixels(), frame.size());
-      L.draw(frame.data(), t, safe);
-      captions.draw(frame.data(), t);
+      std::memcpy(dst, renderer.pixels(), frame.size());
+      L.draw(dst, t, safe);
+      captions.draw(dst, t);
+    };
+    // During a page turn the page shows the picture at the turn's start (rendered once), and the
+    // film goes on underneath.
+    std::vector<uint8_t> pageImg(frame.size()), under(frame.size());
+    int cachedTurn = -1;
+    auto renderAt = [&](float t) {
+      int ti = -1;
+      for (size_t i = 0; i < turns.size(); i++)
+        if (t >= turns[i].t0 && t < turns[i].t0 + turns[i].dur) ti = (int)i;
+      if (ti < 0) {
+        renderScene(t, frame.data());
+        return;
+      }
+      if (cachedTurn != ti) {
+        renderScene(turns[ti].t0, pageImg.data());
+        cachedTurn = ti;
+      }
+      renderScene(t, under.data());
+      pageTurn(pageImg.data(), under.data(), frame.data(), o.width, o.height, (t - turns[ti].t0) / turns[ti].dur);
     };
 
     if (!o.stills.empty()) {
@@ -309,7 +345,7 @@ int main(int argc, char** argv) {
     std::string audioPath;
     if (o.audio) {
       bool voiced;
-      Audio a = soundtrack(narration, o.music, voiced);
+      Audio a = soundtrack(narration, o.music, events, voiced);
       if (!voiced) std::fprintf(stderr, "No narration found in %s. Run tools/narrate.py to record it.\n", narration.string().c_str());
       audioPath = (outPath.parent_path() / (outPath.stem().string() + ".soundtrack.wav")).string();
       slice(a, o.from, to).saveWav(audioPath);

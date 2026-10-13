@@ -40,6 +40,8 @@ struct Score {
   Track thud{Instrument::Thud, {}, 0.8f, 0.25f, 0.5f};
   Track shutter{Instrument::Shutter, {}, 0.7f, 0.2f, 0.5f};
   Track swell{Instrument::Swell, {}, 0.5f, 0.4f, 0.5f};
+  Track page{Instrument::Page, {}, 0.8f, 0.25f, 0.5f};
+  Track flap{Instrument::Flap, {}, 0.7f, 0.2f, 0.5f};
   Rng rng{2024};
 
   // Small timing and velocity differences, so repeated figures don't sound mechanical.
@@ -458,8 +460,11 @@ void chapter7(Score& S, const Chapter& ch, float duration) {
 
 }  // namespace
 
-eng::Audio composeScore(int rate) {
+eng::Audio composeScore(const ScoreEvents& events, int rate) {
   Score S;
+  // The paper itself: a rustle for each page turn, and a flap as each piece of the model stands up.
+  for (double t : events.pageTurns) S.page.notes.push_back({t + 0.05, 1.25f, 0, 0.75f, 0});
+  for (auto [t, v] : events.flaps) S.flap.notes.push_back(S.human(t, 0.1f, 0, v, (float)(S.rng() - 0.5) * 1.2f));
   const auto& chs = script::chapters();
   const float D = script::duration();
   chapter1(S, chs[0]);
@@ -469,7 +474,7 @@ eng::Audio composeScore(int rate) {
   chapter5(S, chs[4]);
   chapter6(S, chs[5]);
   chapter7(S, chs[6], D);
-  std::vector<Track> tracks = {S.piano, S.pad, S.pluck, S.bass, S.bell, S.shaker, S.tick, S.thud, S.shutter, S.swell};
+  std::vector<Track> tracks = {S.piano, S.pad, S.pluck, S.bass, S.bell, S.shaker, S.tick, S.thud, S.shutter, S.swell, S.page, S.flap};
   eng::Audio music = render(tracks, D + 0.5, rate, {.room = 0.84f, .damping = 0.5f, .predelay = 0.025f, .width = 0.9f});
   // Fade in from silence and out with the picture.
   size_t n = music.frames();

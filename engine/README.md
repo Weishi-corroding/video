@@ -62,10 +62,10 @@ renderer that film used before.
 - **Synthesizer** (`eng/synth.h`): notes rendered offline into a stereo buffer through a shared
   reverb (after Freeverb). Instruments: a felt piano (additive partials with string stiffness, a
   two-stage decay and a soft hammer), a plucked string and a bass (Karplus-Strong), a string pad
-  (detuned band-limited saws through a state-variable filter), a music box, and a few noises (shaker,
-  wood-block tick, thud, camera shutter, a rising swell). Chord names ("A/C#", "Gmaj7") spell out
-  voicings, a ducking curve lowers music under a voice, and a look-ahead limiter keeps the mix under
-  full scale.
+  (detuned band-limited saws through a state-variable filter), a music box, and a few noises
+  (shaker, wood-block tick, thud, camera shutter, a rising swell, a page turning, a piece of card
+  snapping up). Chord names ("A/C#", "Gmaj7") spell out voicings, a ducking curve lowers music under
+  a voice, and a look-ahead limiter keeps the mix under full scale.
 
 ## Using it
 

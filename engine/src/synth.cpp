@@ -362,6 +362,43 @@ Voice noiseHit(Instrument kind, const Note& n, float bright, int rate, uint32_t 
       }
       break;
     }
+    case Instrument::Page: {
+      float d = std::max(n.dur, 0.4f);
+      N = (size_t)((d + 0.35f) * rate);
+      v.resize(N);
+      SVF lo;
+      lo.set(160, 0.7f, (float)rate);
+      float flutterPh = noise() * PI, flutterHz = 21 + 9 * noise2();
+      for (size_t i = 0; i < N; i++) {
+        float t = (float)i / rate;
+        float u = clamp(t / d, 0.f, 1.f);
+        if ((i & 31) == 0) {
+          f.set(1400 + 2600 * std::sin(PI * u) * (0.6f + 0.4f * bright), 0.9f, (float)rate);
+          f2.set(1600 + 2400 * std::sin(PI * u), 0.9f, (float)rate);
+        }
+        // Rises quickly, flutters as the sheet bends, and ends with the soft slap of the page landing.
+        float env = std::min(1.f, t / 0.12f) * (t < d ? 1.f : std::exp(-(t - d) / 0.05f)) * (0.55f + 0.45f * std::sin(PI * u));
+        float flutter = 0.65f + 0.35f * std::fabs(std::sin(TAU * flutterHz * t + flutterPh));
+        float l = f.bp(noise()) * env * flutter, r = f2.bp(noise2()) * env * flutter;
+        float land = t > d * 0.92f ? lo.lp(noise()) * std::exp(-(t - d * 0.92f) / 0.06f) * 2.5f : 0.f;
+        float pan = 0.7f - 1.4f * u;  // right to left
+        v.l[i] = (l + land) * panGainL(pan) * 0.35f * vel;
+        v.r[i] = (r + land) * panGainR(pan) * 0.35f * vel;
+      }
+      break;
+    }
+    case Instrument::Flap: {
+      N = (size_t)(0.3f * rate);
+      v.resize(N);
+      f.set(900 + 900 * bright, 0.8f, (float)rate);
+      Osc o(95, rate);
+      for (size_t i = 0; i < N; i++) {
+        float t = (float)i / rate;
+        float s = f.lp(noise()) * std::min(1.f, t / 0.004f) * std::exp(-t / 0.035f) + o.next() * std::exp(-t / 0.05f) * 0.5f;
+        v.addMono(i, s * 0.6f * vel, n.pan);
+      }
+      break;
+    }
     default: break;
   }
   return v;

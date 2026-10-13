@@ -10,7 +10,8 @@ Update buildC1(Ctx& ctx) {
   const Chapter ch = script::chapters()[0];
 
   W.addLight({{0, "day", 1}});
-  W.addCrowd({{0, 0.85f, 1}});
+  // The crowd walks on once the model has stood up.
+  W.addCrowd({{0, 0, 1}, {4.8f, 0.85f, 1.6f}});
   W.addWarp(c("1c").s + 0.2f, c("1c").e, 4);
 
   W.addCam({

@@ -15,6 +15,7 @@ add_executable(emptying-bookshop
   src/world.cpp
   src/overlay.cpp
   src/music.cpp
+  src/pageturn.cpp
   src/chapters/c1.cpp
   src/chapters/c2.cpp
   src/chapters/c3.cpp

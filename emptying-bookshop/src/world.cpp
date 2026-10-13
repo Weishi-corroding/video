@@ -306,6 +306,7 @@ void buildCampus(World& W) {
     ribbon->rotation.x = 0.06f;
     book->add(ribbon);
     campus->add(book);
+    W.book = book;
   }
   campus->add(place(rbox(65.6f, 0.12f, 65.6f, matS(PAL::lawn, 0.95f), 0.03f), 0, -0.06f, -2));
 
@@ -688,6 +689,71 @@ void updateJia(World& W, float t) {
   pose(jia, {.walking = walking, .phase = phase, .look = k.look, .nod = k.nod});
 }
 
+// ---------------- the opening pop-up ----------------
+void setupPopUp(World& W) {
+  const vec3 centre{0, 0, -2};
+  std::vector<Node*> items;
+  for (Node* n : W.campus->children)
+    if (n->kind == NodeKind::Group && n != W.book) items.push_back(n);
+  items.push_back(W.shop.group);
+  for (Node* e : items) {
+    Node* parent = e->parent;
+    vec3 P = e->position;  // the campus and the scene both sit at the origin
+    vec3 out = P - centre;
+    out.y = 0;
+    float dist = out.length();
+    out = dist > 0.5f ? out / dist : vec3{0, 0, 1};
+    // How far the piece reaches outward from its position: the hinge goes at that edge.
+    float reachOut = 0.2f;
+    e->traverse([&](Node* n) {
+      if (n->kind == NodeKind::Group || n->kind == NodeKind::PointLight) return;
+      Geometry* g = static_cast<Mesh*>(n)->geometry;
+      if (!g) return;
+      mat4 m = n->computeWorld();
+      vec3 c = m.transformPoint(g->boundsCenter);
+      float r = g->boundsRadius * m.maxScale();
+      reachOut = std::max(reachOut, dot(c - P, out) + r * 0.7f);
+    });
+    // A little above the lawn, so pieces lying flat don't fight with it.
+    vec3 H{P.x + out.x * reachOut, 0.03f, P.z + out.z * reachOut};
+    Node* pivot = group();
+    pivot->position = H;
+    parent->remove(e);
+    parent->add(pivot);
+    e->position = P - H;
+    pivot->add(e);
+    bool big = reachOut > 1.6f;
+    float t0 = 1.0f + dist / 34 * 2.8f + (big ? 0 : 0.15f);
+    W.popItems.push_back({pivot, cross(vec3{0, 1, 0}, out).normalized(), t0, big ? 0.95f : 0.7f, big});
+    if (e == W.shop.group) W.shopPop = (int)W.popItems.size() - 1;
+    W.popEnd = std::max(W.popEnd, t0 + (big ? 0.95f : 0.7f));
+  }
+}
+
+// How far a piece has stood up (0 folded flat, 1 upright, a little more while it overshoots).
+float popUpAt(const World::PopItem& p, float t) { return backOut(ramp(t, p.t0, p.t0 + p.dur, linear)); }
+
+void updatePopUp(World& W, float t) {
+  for (const auto& p : W.popItems) {
+    float k = t >= W.popEnd ? 1.f : popUpAt(p, t);
+    // Folded flat onto the cover like print, a piece springs up, leaning out a little as it unfolds,
+    // and settles upright.
+    Node* piece = p.pivot->children[0];
+    piece->scale.y = std::max(0.015f, std::min(k, 1.f) + std::max(0.f, k - 1) * 0.5f);
+    piece->visible = true;
+    p.pivot->setQuaternion(quat::axisAngle(p.axis, (1 - k) * 0.55f * std::min(1.f, k * 4)));
+  }
+  // Jia steps out from behind the counter once the shop is up.
+  if (W.shopPop >= 0 && t < W.popEnd + 0.5f) {
+    const auto& p = W.popItems[W.shopPop];
+    float k = smooth(ramp(t, p.t0 + p.dur * 0.6f, p.t0 + p.dur + 0.3f));
+    W.jia->scale.setScalar(std::max(k, 0.0001f));
+    W.jia->visible = W.jia->visible && k > 0.002f;
+  } else {
+    W.jia->scale.setScalar(1);
+  }
+}
+
 }  // namespace
 
 World* createWorld() {
@@ -753,6 +819,7 @@ World* createWorld() {
   buildShop(W);
   buildCrowd(W);
   buildJia(W);
+  setupPopUp(W);
   return Wp;
 }
 
@@ -763,6 +830,22 @@ void World::finalize() {
   std::stable_sort(lightKeys.begin(), lightKeys.end(), byT);
   std::stable_sort(crowdKeys.begin(), crowdKeys.end(), byT);
   std::stable_sort(shopKeys.begin(), shopKeys.end(), byT);
+  // A cut is a copy of the next shot that arrives at once.
+  for (float c : cuts) {
+    auto it = std::find_if(camKeys.begin(), camKeys.end(), [&](const CamKey& k) { return k.t > c; });
+    if (it == camKeys.end()) continue;
+    CamKey cut = *it;
+    cut.t = c;
+    cut.d = 0.001f;
+    cut.arc = 0;
+    camKeys.insert(it, cut);
+  }
+}
+
+std::vector<std::pair<double, float>> World::popSounds() const {
+  std::vector<std::pair<double, float>> out;
+  for (const auto& p : popItems) out.push_back({p.t0 + p.dur * 0.55, p.big ? 0.65f : 0.16f});
+  return out;
 }
 
 void World::resize(int w, int h) { camera.aspect = (float)w / h; }
@@ -773,6 +856,7 @@ void World::update(float t) {
   updateCamera(*this, t);
   updateCrowd(*this, t);
   updateJia(*this, t);
+  updatePopUp(*this, t);
   updateShop(*this, t);
   for (size_t i = 0; i < clouds.size(); i++) clouds[i]->position.y = cloudY[i] + std::sin(t * 0.21f + i * 1.7f) * 0.6f;
   for (auto& f : updaters) f(t);

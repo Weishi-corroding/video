@@ -77,6 +77,7 @@ struct World {
   std::vector<CrowdKey> crowdKeys;
   std::vector<ShopKey> shopKeys;
   std::vector<std::tuple<float, float, float>> warps;
+  std::vector<float> cuts;
   std::vector<std::function<void(float)>> updaters;
 
   std::vector<Material*> nightMats, lamps;
@@ -108,6 +109,21 @@ struct World {
   } crowd;
 
   Figure jia;
+  Node* book = nullptr;
+
+  // The opening: the paper model lies folded flat on the cover and stands up, piece by piece, in a
+  // wave from the middle outward. Each piece turns about a hinge at its outer edge.
+  struct PopItem {
+    Node* pivot;
+    vec3 axis;
+    float t0, dur;
+    bool big;
+  };
+  std::vector<PopItem> popItems;
+  int shopPop = -1;
+  float popEnd = 0;
+  // When the larger pieces snap upright, and how loudly (for the score).
+  std::vector<std::pair<double, float>> popSounds() const;
 
   void addCam(std::initializer_list<CamKey> k) { camKeys.insert(camKeys.end(), k); }
   void addJia(std::initializer_list<JiaKey> k) { jiaKeys.insert(jiaKeys.end(), k); }
@@ -116,6 +132,8 @@ struct World {
   void addShop(std::initializer_list<ShopKey> k) { shopKeys.insert(shopKeys.end(), k); }
   // Crowd time runs at k× between a and b (k = 0 freezes it, k > 1 is a time-lapse).
   void addWarp(float a, float b, float k) { warps.emplace_back(a, b, k); }
+  // From time t, cut straight to the next shot instead of moving to it (under a page turn).
+  void cutAt(float t) { cuts.push_back(t); }
   void onUpdate(std::function<void(float)> f) { updaters.push_back(std::move(f)); }
 
   void finalize();

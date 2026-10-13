@@ -21,6 +21,8 @@ enum class Instrument {
   Thud,     // low impact (something heavy landing)
   Shutter,  // camera shutter: two short clicks
   Swell,    // rising breath of noise that ends at t + dur
+  Page,     // a page turning over `dur` seconds: a fluttering rustle that travels from right to left
+  Flap,     // a piece of card snapping upright
 };
 
 struct Note {
