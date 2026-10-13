@@ -3,7 +3,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { chapters, cues, c, DURATION, words, WPS } from '../js/script.js';
+import { chapters, cues, c, DURATION, words, WPS } from '../src/script.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SPOKEN_WPS = 2.75;   // a typical English system voice at rate 1
@@ -26,7 +26,7 @@ cues.forEach((q, i) => {
 });
 
 // Every cue id referenced by a chapter module must exist.
-const chapterDir = join(root, 'js', 'chapters');
+const chapterDir = join(root, 'src', 'chapters');
 for (const f of readdirSync(chapterDir)) {
   const src = readFileSync(join(chapterDir, f), 'utf8');
   for (const m of src.matchAll(/c\[['"](\w+)['"]\]/g)) {

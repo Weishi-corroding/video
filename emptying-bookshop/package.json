@@ -5,7 +5,7 @@
   "description": "A seven-minute Three.js animated story: how to apply Marxist principles to improve dialectical thinking skills.",
   "type": "module",
   "scripts": {
-    "start": "python3 -m http.server 8000",
+    "start": "python3 tools/serve.py",
     "check": "node tools/check-script.mjs"
   },
   "license": "MIT"

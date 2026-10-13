@@ -8,14 +8,16 @@ Jia runs a student second-hand bookshop, and fewer people come in each week. The
 
 ## Run it
 
-The page uses ES modules, so serve the folder over HTTP instead of opening the file directly:
+The page uses ES modules, so serve the folder over HTTP instead of opening the file directly. From this folder:
 
 ```sh
-python3 -m http.server 8000
-# then open http://localhost:8000
+python3 tools/serve.py
+# then open http://localhost:8017
 ```
 
-There is no build step and nothing to install. Three.js r186 is vendored in `vendor/three`, and the Latin fonts (Inter, Source Serif 4) are in `vendor/fonts`. The film therefore works offline and looks the same everywhere. Chinese text uses the system's Chinese font.
+`tools/serve.py` is a small static server that turns browser caching off. Plain `python3 -m http.server 8000` also works. But if your browser has visited another project on the same port, it may keep using that project's cached files, and the film will stop at "Loading…" or show the other project. If that happens, use `tools/serve.py`, pick another port, or hard-reload (<kbd>Ctrl</kbd>/<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>).
+
+There is no build step and nothing to install. Three.js r186 is vendored in `vendor/three-r186`, and the Latin fonts (Inter, Source Serif 4) are in `vendor/fonts`. The film therefore works offline and looks the same everywhere. Chinese text uses the system's Chinese font.
 
 ## Chapters
 
@@ -47,19 +49,20 @@ For review, these URL options help: `?t=95` starts at a time, `?still` skips the
 ```
 index.html               player markup, import map
 css/style.css            palette, typography, labels, player chrome
-js/script.js             chapters and timed narration cues (English and Chinese)
-js/world.js              renderer, light by time of day, campus, shop, crowd, Jia, camera rig
-js/chapters/c1–c7.js     one module per chapter: builds its props and animates them from time
-js/kit.js                easing, materials, props (figures, shelves, tables, signs, threads…)
-js/labels.js             HTML labels anchored to 3D points or the screen
-js/timeline.js           master clock (play, pause, seek, speed)
-js/narration.js          speech synthesis wrapper
-js/ui.js                 seek bar, menus, toggles, keys, captions, start screen
+src/script.js            chapters and timed narration cues (English and Chinese)
+src/world.js             renderer, light by time of day, campus, shop, crowd, Jia, camera rig
+src/chapters/c1–c7.js    one module per chapter: builds its props and animates them from time
+src/kit.js               easing, materials, props (figures, shelves, tables, signs, threads…)
+src/labels.js            HTML labels anchored to 3D points or the screen
+src/timeline.js          master clock (play, pause, seek, speed)
+src/narration.js         speech synthesis wrapper
+src/ui.js                seek bar, menus, toggles, keys, captions, start screen
 tools/check-script.mjs   pacing and consistency check for the script
-vendor/three, vendor/fonts
+tools/serve.py           local static server with caching off
+vendor/three-r186, vendor/fonts
 ```
 
-Everything on screen is a pure function of master time, so seeking, scrubbing, and speed changes are exact and never drift. Chapters register camera, light, crowd, shop-state and Jia keyframes with the world, and every key time comes from a narration cue (`c['3d'].s`). Cue times are laid out from word counts, so editing a line in `js/script.js` retimes it and everything that follows. After editing the script, run `node tools/check-script.mjs`. It reports lines that are too dense to voice in their slot, Chinese lines too long for two subtitle lines, and references to cue ids that no longer exist.
+Everything on screen is a pure function of master time, so seeking, scrubbing, and speed changes are exact and never drift. Chapters register camera, light, crowd, shop-state and Jia keyframes with the world, and every key time comes from a narration cue (`c['3d'].s`). Cue times are laid out from word counts, so editing a line in `src/script.js` retimes it and everything that follows. After editing the script, run `node tools/check-script.mjs`. It reports lines that are too dense to voice in their slot, Chinese lines too long for two subtitle lines, and references to cue ids that no longer exist.
 
 Colour carries meaning, and each coloured label also says in words what it is:
 - **teal:** a fact Jia found
@@ -84,4 +87,4 @@ Jia wears a green apron and carries a notebook.
 
 ## Licence
 
-MIT (see `LICENSE`). Three.js is © three.js authors, MIT, in `vendor/three/LICENSE`. Inter and Source Serif 4 are under the SIL Open Font License 1.1, in `vendor/fonts/OFL-*.txt`.
+MIT (see `LICENSE`). Three.js is © three.js authors, MIT, in `vendor/three-r186/LICENSE`. Inter and Source Serif 4 are under the SIL Open Font License 1.1, in `vendor/fonts/OFL-*.txt`.
