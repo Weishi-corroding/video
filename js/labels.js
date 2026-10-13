@@ -100,7 +100,7 @@ export class LabelLayer {
     }
     for (const p of this.captions.children) {
       const r = p.firstChild && p.firstChild.getBoundingClientRect && p.firstChild.getBoundingClientRect();
-      if (r && r.width > 0 && !this.captions.classList.contains('on-screen')) blocks.push({ x: r.left, y: r.top, w: r.width, h: r.height, o: 1 });
+      if (r && r.width > 0 && !this.captions.classList.contains('on-screen')) blocks.push({ x: r.left, y: r.top, w: r.width, h: r.height, o: 1, up: true });
     }
 
     // relax: the fainter label of a pair gives way, so a label fading in never shoves a settled one
@@ -117,7 +117,10 @@ export class LabelLayer {
         }
         for (const k of blocks) {
           const m = separation(k.x, k.y, k.w, k.h, a.x, a.y, a.w, a.h);
-          if (m) { a.x += m.ux * m.s * k.o; a.y += m.uy * m.s * k.o; }
+          if (!m) continue;
+          // captions sit on the bottom edge, so a label always clears them upward
+          if (k.up) a.y = Math.min(a.y, k.y - GAP - a.h);
+          else { a.x += m.ux * m.s * k.o; a.y += m.uy * m.s * k.o; }
         }
       }
       for (const a of boxes) {

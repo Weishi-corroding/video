@@ -3,7 +3,7 @@
 // Everything is computed from the master time, so seeking is exact.
 import * as THREE from 'three';
 import { CHAPTERS, chapterAt, localCues } from './script.js';
-import { COLORS, ease, lerp, clamp01 } from './kit.js';
+import { COLORS, ease, lerp, clamp01, hash } from './kit.js';
 import * as c1 from './chapters/c1.js';
 import * as c2 from './chapters/c2.js';
 import * as c3 from './chapters/c3.js';
@@ -40,13 +40,14 @@ export class World {
     path.position.y = -0.48;
     scene.add(path);
 
-    // drifting dust for depth (rotates with time; no per-frame state)
+    // drifting dust for depth (rotates with time; no per-frame state). Seeded, so every
+    // load and every review frame shows the same field.
     const N = 900;
     const pos = new Float32Array(N * 3);
     for (let i = 0; i < N; i++) {
-      const a = Math.random() * Math.PI * 2, r = RING_R + (Math.random() - 0.5) * 50;
+      const a = hash(i * 3 + 1) * Math.PI * 2, r = RING_R + (hash(i * 3 + 2) - 0.5) * 50;
       pos[i * 3] = Math.cos(a) * r;
-      pos[i * 3 + 1] = Math.random() * 14 - 0.5;
+      pos[i * 3 + 1] = hash(i * 3 + 3) * 14 - 0.5;
       pos[i * 3 + 2] = Math.sin(a) * r;
     }
     const dg = new THREE.BufferGeometry();

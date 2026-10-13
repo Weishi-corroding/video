@@ -21,13 +21,13 @@ There is no build step and nothing to install. Three.js r186 is vendored in `ven
 
 | Time | Chapter | What the animation shows |
 |---|---|---|
-| 0:00 | One Tool, Two Approaches | Two study spaces share one AI panel. A asks for a finished answer, and B asks for a critique of a first attempt. The teacher's follow-up exposes a different gap in each student's reasoning. The scene is labelled a dramatization. |
+| 0:00 | One Tool, Two Approaches | Two study spaces share one AI panel. A asks for a finished answer, and B asks for a critique of a first attempt, then revises the flagged lines. The teacher's follow-up exposes a different gap in each student's reasoning. The scene is labelled a dramatization. |
 | 0:45 | Efficiency and Independent Thinking | The workspace splits into two paths. "Time saved" tokens either flow into further reasoning or stop at a polished answer. A pros/cons list gives way to interlocking rings, and a balance of conditions (explanation required, process checked, product-only grading, deadlines) steers the flow. |
 | 1:50 | Different Tasks, Different Uses | Three stations: concept, problem, argument. Each shows what AI can contribute (amber) and what the learner must still explain, verify, or perform (mint). Ends with a reflection pause. |
-| 3:10 | Find the Decisive Problem | A load test reveals which weakness matters in each construction model: correlation vs. causation for A, and thin evidence plus unanswered alternative explanations for B. Minor flaws stay visible but dim. |
+| 3:10 | Find the Decisive Problem | A load test reveals which weakness matters in each construction model: correlation read as causation for A, and thin evidence plus unanswered alternative explanations for B. Whether grades show lasting learning is kept as a separate question. Minor flaws stay visible but dim. |
 | 4:10 | Learning Across Time | Three linked islands: today's assignment, a later assessment, an unfamiliar problem. A changes strategy. B finds that a convincing AI suggestion cites a study that doesn't exist. Branching routes show possible trajectories, labelled as illustrative rather than measured. |
-| 5:10 | Test, Reflect, Revise | A cycle of independent attempt → targeted assistance → verification → transfer → revision. Both students try a new example with the AI off and revisit it a week later. The camera then pulls back to set classroom evidence inside the broader idea of social practice. |
-| 6:20 | Ask a Better Question | The workspaces reconnect. The smarter/more-dependent seesaw breaks into four questions, and the film ends on a learner making a decision and checking it. |
+| 5:10 | Test, Reflect, Revise | A cycle of independent attempt → targeted assistance → verification → transfer → revision. Both students try a new example with the AI off (study-group students earn higher grades) and revisit it a week later. The camera then pulls back to set classroom evidence inside the broader idea of social practice: production, social life, scientific experiment. |
+| 6:20 | Ask a Better Question | The workspaces reconnect. The smarter/more-dependent seesaw breaks into four questions, and the film ends on a learner making a decision and checking it, then on one concrete next step. |
 
 ## Player
 
@@ -65,11 +65,11 @@ Visual language: dark teal surroundings, warm ivory models, **amber for what the
 ## Conceptual safeguards
 
 - **Contradiction, not a pros/cons list.** Chapter 2 visibly strikes out the two-column list and replaces it with interlocking rings. Efficiency and independent thinking act on each other, and conditions (task demands, process checks, assessment format, deadlines) decide which way the influence runs.
-- **Priorities from evidence.** In chapter 4 the decisive problem is the one a load test exposes, and its repair changes how the other flaws look. Minor flaws stay on screen, dimmed, because "not every weak point is a principal contradiction".
+- **Priorities from evidence.** In chapter 4 the decisive problem is the one a load test exposes, and its repair changes how the other flaws look. The principal contradiction is named, not just asserted: in each model the claim outruns its evidence. Minor flaws stay on screen, dimmed, because a vague sentence is a flaw, not the principal contradiction.
 - **Teaching and assessment conditions** appear as explicit, movable weights (chapter 2), and task design is named as something that bends trajectories (chapter 5).
 - **One good answer is not lasting competence.** The grade medal only appears with a question mark over later tasks. Delayed, independent, and transfer tasks are presented as stronger evidence, but still evidence, not proof (chapter 6).
 - **No invented data.** The students are fictional, the trajectories carry no axes or numbers, and the film says so on screen.
-- **Social practice** is distinguished from classroom checks. It is the wider ring of human activity in which ideas are tested against the world, and a classroom check is only a small, designed part of it.
+- **Social practice** is distinguished from classroom checks. It is the wider ring of human activity that changes the world and tests ideas against it, and a classroom check is only a small, designed part of it.
 
 ## Licence
 

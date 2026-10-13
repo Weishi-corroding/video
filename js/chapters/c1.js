@@ -50,12 +50,15 @@ export function build(ctx) {
   for (let i = 0; i < 3; i++) {
     const f = new THREE.Group();
     f.add(at(box(0.012, 0.16, 0.012, MAT.ivory3, 0.003), 0, 0.08, 0));
-    f.add(at(box(0.09, 0.055, 0.008, i === 1 ? MAT.amberGlow : MAT.mintGlow, 0.006), 0.045, 0.14, 0));
+    f.add(at(box(0.09, 0.055, 0.008, glow(COLORS.amber, 1.6), 0.006), 0.045, 0.14, 0));
     f.position.set(0.12 - i * 0.02, 0.012, -0.12 + i * 0.12);
     paperB.add(f);
     flags.push(f);
   }
-  const critPkts = [0, 1, 2].map(() => { const p = packet(MAT.mintGlow, 0.08); G.add(p); return p; });
+  const critPkts = [0, 1, 2].map(() => { const p = packet(MAT.amberGlow, 0.08); G.add(p); return p; });
+  // B's own revision of the lines the critique flagged is mint
+  const revised = [1, 2, 4].map((i) => { const l = draftLines[i]; l.material = l.material.clone(); l.material.emissive = new THREE.Color(COLORS.mint); l.material.emissiveIntensity = 0; return l; });
+  const inkC = new THREE.Color(COLORS.ink), mintC = new THREE.Color(COLORS.mint);
   const flagTargets = flags.map(() => new THREE.Vector3());
 
   // Teacher in the foreground, facing the students
@@ -113,7 +116,8 @@ export function build(ctx) {
     askA: label({ html: '“Give me a finished answer.”', anchor: [-3.0, 2.15, 0.4], cls: 'speech' }),
     gotA: label({ html: '<b>Finished answer</b><br>fast · fluent · organized', anchor: ansA, dy: -18, cls: 'tag amber' }),
     askB: label({ html: '“Here’s my first attempt. Critique it.”', anchor: [3.0, 2.15, 0.4], cls: 'speech' }),
-    gotB: label({ html: '<b>Critique</b><br>questions · gaps · counterexamples', anchor: [4.2, 0.9, 1.5], dx: 20, align: 'left', cls: 'tag mint' }),
+    gotB: label({ html: '<b>Critique</b><br>questions · gaps · counterexamples', anchor: [4.2, 0.9, 1.5], dx: 20, align: 'left', cls: 'tag amber' }),
+    revB: label({ html: '<b>B revises</b> the flagged lines', anchor: [4.2, 0.9, 1.5], dx: 20, dy: 46, align: 'left', cls: 'tag mint small' }),
     teacher: label({ html: '“Walk me through your reasoning.”', anchor: [0, 1.75, 3.4], cls: 'speech teacher' }),
     tchTag: label({ html: 'Teacher', anchor: [0, 0.0, 3.4], dy: 34, cls: 'tag ivory small' }),
     chA0: label({ html: 'higher grades', anchor: chA.parts[0], dy: 20, align: 'below', cls: 'tag small' }),
@@ -148,7 +152,7 @@ export function build(ctx) {
     const kd = ramp(t, sA + 2.2, sA + 4.0, ease.inOut);
     ansA.visible = kd > 0;
     if (ansA.visible) {
-      along(thA.userData.curve, 1 - kd * 0.92, tmp);
+      along(thA.userData.curve, 0.08 + kd * 0.92, tmp);
       ansA.position.lerpVectors(tmp, ansRest, ramp(t, sA + 3.6, sA + 4.6));
       const s = 0.4 + 0.6 * ramp(t, sA + 2.2, sA + 4.4, ease.out);
       ansA.scale.setScalar(s);
@@ -175,10 +179,17 @@ export function build(ctx) {
       const p = critPkts[i];
       p.visible = k > 0 && k < 1;
       if (p.visible) {
-        along(thB.userData.curve, 1 - k * 0.9, tmp);
+        along(thB.userData.curve, 0.1 + k * 0.9, tmp);
         p.position.lerpVectors(tmp, flagTargets[i], ramp(k, 0.6, 1));
       }
       pop(f, ramp(t, sB + 4.6 + i * 0.25, sB + 5.1 + i * 0.25));
+      // B reads each flag, then rewrites that line: the flag and the line turn mint
+      const kr = ramp(t, sB + 5.5 + i * 0.35, sB + 6.0 + i * 0.35);
+      const fm = f.children[1].material; // each flag has its own material
+      fm.color.setHex(COLORS.amber).lerp(mintC, kr);
+      fm.emissive.copy(fm.color);
+      revised[i].material.color.copy(inkC).lerp(mintC, kr);
+      revised[i].material.emissiveIntensity = 0.9 * kr;
     });
 
     // Teacher's follow-up
@@ -224,6 +235,7 @@ export function build(ctx) {
     L.gotA.set(win(t, sA + 4.4, sB + 0.4, 0.5));
     L.askB.set(askB);
     L.gotB.set(win(t, sB + 5.0, sT + 0.4, 0.5));
+    L.revB.set(win(t, sB + 5.8, sT + 0.4, 0.4));
     L.teacher.set(win(t, sT + 0.6, sH + 0.3, 0.4));
     L.tchTag.set(win(t, sT + 0.6, sH + 0.3, 0.4));
     const chainA = win(t, sH + 1.0, 45.5, 0.5), chainB = win(t, sH + 1.4, 45.5, 0.5);

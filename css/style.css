@@ -122,6 +122,8 @@ body.zh .zh-line { display: block; font-size: 0.86em; margin-top: 3px; opacity: 
 .question-card small { display: block; font-family: var(--sans); font-size: 0.42em; letter-spacing: 0.2em; text-transform: uppercase; color: var(--mint); margin-bottom: 0.6em; }
 .lead { font-family: var(--serif); font-size: clamp(16px, 1.15vw + 7px, 27px); padding: 0.45em 1em; border-radius: 12px; background: rgba(4, 26, 28, 0.6); white-space: nowrap; }
 .lead s { text-decoration-color: var(--amber); text-decoration-thickness: 2px; }
+.lead.chain b { font-family: var(--sans); font-weight: 700; margin: 0 0.3em; color: var(--ivory-dim); }
+.lead.chain b.amber { color: var(--amber); }
 .muted { color: var(--ivory-dim); }
 
 .reflect {

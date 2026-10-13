@@ -114,8 +114,10 @@ export function build(ctx) {
     tA: label({ html: '<b>A’s reasoning</b>', anchor: [-2.7, 0.32, 1.1], align: 'below', dy: 6, cls: 'tag ivory' }),
     tB: label({ html: '<b>B’s reasoning</b>', anchor: [2.7, 0.32, 1.1], align: 'below', dy: 6, cls: 'tag ivory' }),
     fA: label({ html: 'AI users get higher grades', anchor: [-3.6, 0.6, 0.6], dx: -8, align: 'right', cls: 'tag small' }),
-    jA: label({ html: '→ so AI caused the learning', anchor: [-3.55, 0.92, 0.5], dx: -8, align: 'right', cls: 'tag small amber' }),
+    jA: label({ html: '→ so AI caused them', anchor: [-3.55, 0.92, 0.5], dx: -8, align: 'right', cls: 'tag small amber' }),
     topA: label({ html: 'polished conclusion', anchor: u3, dy: -16, cls: 'tag small' }),
+    // the two inferences A's model stacks, kept apart: the first is what fails under load
+    chain: overlay('<div class="lead chain">AI use <b class="amber">→?</b> higher grades <b>→?</b> lasting learning</div>', 'center-top', 'AI 使用 →？ 成绩更高 →？ 持久的学习'),
     deckB: label({ html: 'Claim: AI helps learning', anchor: deckTop, dy: -16, cls: 'tag small' }),
     pilB: label({ html: 'evidence (thin)', anchor: pillars[1], dx: 30, align: 'left', cls: 'tag small' }),
     slotB: label({ html: 'answer to other explanations? <i>missing</i>', anchor: slots[1], dx: 20, dy: 20, align: 'left', cls: 'tag small amber' }),
@@ -128,7 +130,7 @@ export function build(ctx) {
     alt1: label({ html: 'stronger students may use AI more', anchor: alts[0], dy: -6, cls: 'tag small amber' }),
     alt2: label({ html: 'AI-allowed tasks may be easier to score well on', anchor: alts[1], dy: -6, cls: 'tag small amber' }),
     changes: label({ html: 'Fixing it changes how the other flaws look', anchor: [-2.7, 2.3, 0], cls: 'tag mint' }),
-    legend: overlay(`<div class="legend-card"><div><i class="dot amber"></i><b>Decisive</b>: found by testing, reshapes the rest</div><div><i class="dot dim"></i><b>Minor</b>: real, but not the priority now</div><p>Not every weak point is a <b>principal contradiction</b>.</p></div>`, 'center-top', '并不是每个薄弱点都是主要矛盾'),
+    legend: overlay(`<div class="legend-card"><div><i class="dot amber"></i><b>Decisive</b>: found by testing, reshapes the rest</div><div><i class="dot dim"></i><b>Minor</b>: real flaws, not the priority now</div><p><b>Principal contradiction</b>: the claim outruns its evidence.</p></div>`, 'center-top', '主要矛盾：结论超出了证据所能支撑的范围'),
   };
 
   function update(lt) {
@@ -238,6 +240,7 @@ export function build(ctx) {
     L.f2.set(win(t, sB + 2.8, sC + 0.4, 0.3));
     L.f3.set(win(t, sB + 4.0, sC + 0.4, 0.3));
     L.load.set(win(t, sC + 0.6, sD, 0.4));
+    L.chain.set(win(t, sD + 0.6, c['4f'].s, 0.5));
     L.decA.set(win(t, c['4e'].s, c['4f'].s + 0.8, 0.5)); // only while the camera is on A
     L.decB.set(win(t, c['4g'].s + 0.4, sI + 0.4, 0.5));
     L.alt1.set(win(t, sH + 0.4, sI, 0.4));

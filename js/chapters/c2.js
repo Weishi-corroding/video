@@ -36,9 +36,11 @@ export function build(ctx) {
   const feed = tube([[0, 0.2, 2.6], [0, 0.2, 2.0], J], 0.04, railMat, { segs: 30 });
   const S = [[-1.9, 0.5, 0.1], [-3.15, 1.0, -1.3], [-3.85, 1.5, -2.85]];
   const END = [-3.2, 2.0, -4.3];
-  const left = tube([J, [-1.0, 0.3, 0.8], S[0], S[1], S[2], END], 0.04, railMat);
+  // each path gets its own rail material, so the inactive one can step back
+  const left = tube([J, [-1.0, 0.3, 0.8], S[0], S[1], S[2], END], 0.04, railMat.clone());
   const PED = [3.75, 0.95, -1.7];
-  const right = tube([J, [1.4, 0.2, 0.7], [2.8, 0.2, -0.5], [3.55, 0.45, -1.35], PED], 0.04, railMat);
+  const right = tube([J, [1.4, 0.2, 0.7], [2.8, 0.2, -0.5], [3.55, 0.45, -1.35], PED], 0.04, railMat.clone());
+  const railC = new THREE.Color(COLORS.ivory3), railDim = new THREE.Color(0x2b5250);
   G.add(feed, left, right);
 
   // stations on the reasoning path
@@ -201,6 +203,12 @@ export function build(ctx) {
     pop(stopper, ramp(t, c['2b'].s + 3.0, c['2b'].s + 3.6));
     pop(junction, ramp(t, c['2b'].s + 1.2, c['2b'].s + 1.8));
     pop(diverter, ramp(t, c['2b'].s + 1.4, c['2b'].s + 2.0));
+
+    // the path the narration is on stays bright; the other dims
+    const onL = win(t, c['2c'].s - 0.4, c['2e'].s + 0.2, 0.6) + win(t, c['2k'].s + 0.6, c['2l'].s + 0.4, 0.6);
+    const onR = win(t, c['2e'].s + 0.2, c['2f'].s, 0.6) + win(t, c['2l'].s + 0.4, 65, 0.6);
+    left.material.color.copy(railC).lerp(railDim, 0.75 * clamp01(onR - onL));
+    right.material.color.copy(railC).lerp(railDim, 0.75 * clamp01(onL - onR));
 
     // tokens (each one is a pure function of its emission time)
     tokens.forEach((tk) => (tk.visible = false));

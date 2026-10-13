@@ -114,6 +114,7 @@ export function build(ctx) {
   const seal = at(mesh(new THREE.TorusGeometry(0.07, 0.018, 8, 32), ornate), -0.13, -0.18, 0.03);
   sR.add(at(mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.02, 24), ornate), 0.0, -0.18, 0.03));
   sR.children[sR.children.length - 1].rotation.x = Math.PI / 2;
+  const citation = sR.children[sR.children.length - 1]; // the cited study's seal: gone once checked
   sR.add(seal);
   for (let i = 0; i < 4; i++) {
     sL.add(at(box(0.18, 0.02, 0.01, MAT.ivory3, 0.004), 0.02, 0.15 - i * 0.07, 0.02));
@@ -149,7 +150,7 @@ export function build(ctx) {
     i1: label({ html: '<b>Today’s assignment</b>', anchor: [ISL[0].x, ISL[0].y - 0.2, ISL[0].z + 1.9], align: 'below', cls: 'tag ivory', zh: '今天的作业' }),
     i2: label({ html: '<b>A later assessment</b>', anchor: [ISL[1].x, ISL[1].y - 0.2, ISL[1].z + 1.9], align: 'below', cls: 'tag ivory', zh: '之后的测评' }),
     i3: label({ html: '<b>An unfamiliar problem</b>', anchor: [ISL[2].x, ISL[2].y - 0.2, ISL[2].z + 1.9], align: 'below', cls: 'tag ivory', zh: '陌生的问题' }),
-    time: overlay('<div class="time-arrow"><span>time</span></div>', 'bottom-band'),
+    time: label({ html: '<span>time</span>', anchor: [0, -0.2, 3.2], align: 'below', cls: 'time-arrow' }),
     strong: label({ html: 'a strong result here…', anchor: medal, dy: -24, cls: 'tag small amber' }),
     q2: label({ html: '?', anchor: [0, y2 + 1.9, -1.0], cls: 'qmark' }),
     q3: label({ html: '?', anchor: [5.6, y3 + 2.1, 1.2], cls: 'qmark' }),
@@ -158,7 +159,7 @@ export function build(ctx) {
     stratA: label({ html: '<b>A changes strategy</b><br>attempt first · ask for a hint, not an answer', anchor: [-2.8, ymid + 1.5, 0.45], cls: 'tag mint', zh: 'A 改变策略：先尝试，再要提示而不是答案' }),
     suggB: label({ html: '<b>Convincing AI suggestion</b><br>“A study proves AI use causes better learning.”', anchor: sugg, dx: 30, align: 'left', cls: 'tag amber', zh: '看似可信的 AI 建议：“一项研究证明使用 AI 会带来更好的学习。”' }),
     wrongB: label({ html: '<b>B checks the source</b><br>no such study · correlation treated as cause', anchor: sugg, dx: 30, dy: 10, align: 'left', cls: 'tag mint', zh: 'B 核查来源：研究不存在 · 把相关当成了因果' }),
-    habit: label({ html: 'Good habits one day ≠ good judgment the next', anchor: [0.6, y2 + 2.6, -1.0], cls: 'tag ivory' }),
+    habit: label({ html: 'Good judgment has to be renewed each time', anchor: [0.6, y2 + 2.6, -1.0], cls: 'tag ivory', zh: '好的判断需要每次重新做出' }),
     disclaimer: overlay('<div class="lead">Possible trajectories <span class="muted">— illustrative, not measured data</span></div>', 'center-top', '可能的轨迹——仅为示意，并非测量数据'),
     ra1: label({ html: 'keeps attempting first', anchor: [7.6, y3 + H + 0.3, 0.6], dy: 8, align: 'below', cls: 'tag tiny mint' }),
     ra2: label({ html: 'drifts back to finished answers', anchor: [2.8, y2 - 0.1, 2.8], align: 'below', cls: 'tag tiny' }),
@@ -246,6 +247,8 @@ export function build(ctx) {
     // drive the shared ornate material directly so the paper never picks up the glow
     ornate.emissiveIntensity = (0.9 + 0.6 * win(t, sD + 1.2, sE, 0.6)) * (1 - split);
     ornate.color.setHex(COLORS.amber).lerp(dimC, split);
+    // the lens passes over the citation and finds nothing behind it
+    pop(citation, 1 - ramp(t, sE + 1.8, sE + 2.4, ease.in));
     const kl = win(t, sE + 0.4, sE + 5.4, 0.5);
     lens.visible = kl > 0.01;
     if (lens.visible) {

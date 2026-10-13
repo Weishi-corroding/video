@@ -176,7 +176,12 @@ export function build(ctx) {
     L.smarter.set(win(t, sB + 0.4, sB + 3.6, 0.4));
     L.dependent.set(win(t, sB + 0.6, sB + 3.6, 0.4));
     L.either.set(win(t, sB + 1.0, sB + 3.4, 0.4));
-    L.q.forEach((l, i) => l.set(win(t, c[qCue[i]].s + 0.2, c['7h'].e + 0.2, 0.5)));
+    // the newest question leads; earlier ones step back until the set is complete
+    const settled = ramp(t, c['7f'].e, c['7f'].e + 0.8);
+    L.q.forEach((l, i) => {
+      const next = i < 3 ? ramp(t, c[qCue[i + 1]].s, c[qCue[i + 1]].s + 0.6) : 0;
+      l.set(win(t, c[qCue[i]].s + 0.2, c['7h'].e + 0.2, 0.5) * (1 - 0.5 * next * (1 - settled)));
+    });
     L.grade.set(win(t, sG + 0.2, sG + 3.2, 0.4));
     L.decide.set(win(t, sH + 1.0, c['7h'].e + 0.2, 0.4));
     L.evaluate.set(win(t, sH + 4.0, c['7h'].e + 0.2, 0.4));

@@ -66,12 +66,20 @@ function voiceCue(i) {
   spokenCue = i;
   narrator.speak(i, timeline.speed);
 }
+// Seeking while playing re-voices the line it lands in, as resuming does, so
+// keyboard seeks and seek-bar drags behave the same. The short settle keeps a
+// burst of arrow presses from stuttering.
+let seekVoice = 0;
 timeline.addEventListener('seek', () => {
   narrator.cancel();
   held = 0;
+  clearTimeout(seekVoice);
   const i = cueAt(timeline.time);
-  // landing at the very start of a cue still lets it be spoken
-  spokenCue = i >= 0 && timeline.time - CUES[i].start > 0.3 ? i : -1;
+  spokenCue = i; // the frame loop leaves this cue to the settle timer below
+  if (i < 0 || !timeline.playing || !narrator.enabled) return;
+  seekVoice = setTimeout(() => {
+    if (timeline.playing && narrator.enabled && cueAt(timeline.time) === i) voiceCue(i);
+  }, 250);
 });
 timeline.addEventListener('pause', () => narrator.cancel());
 timeline.addEventListener('play', () => {

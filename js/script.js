@@ -2,7 +2,8 @@
 // and the on-screen wording shared by the scenes.
 // Times are in seconds on the master timeline. Scene code references cues by id,
 // so retiming a cue here moves the matching animation with it. onScreen: a card
-// shows this line verbatim, so the caption steps aside while it is up.
+// shows this line verbatim, so the caption steps aside while it is up. endCard:
+// the end card is on screen from this cue on.
 
 export const DURATION = 420;
 
@@ -60,21 +61,21 @@ export const CUES = [
   { id: '4a', start: 190.8, end: 194.6, en: 'Now picture each student’s reasoning as a construction model.', zh: '现在，把每个学生的推理想象成一个建筑模型。' },
   { id: '4b', start: 195.0, end: 201.6, en: 'Both have plenty of small flaws: a vague sentence, a missing citation. They don’t matter equally.', zh: '两个模型都有不少小毛病：一句含糊的话，一处缺失的引用。它们的分量并不相同。' },
   { id: '4c', start: 202.2, end: 207.8, en: 'So we test them under load: the same follow-up question the teacher asked.', zh: '于是我们给模型加上负荷：就是老师提出的那个追问。' },
-  { id: '4d', start: 208.4, end: 214.0, en: 'A’s model fails at the foundation, the step from higher grades to better learning.', zh: 'A 的模型在地基处断裂——从“成绩更高”到“学得更好”的那一步。' },
-  { id: '4e', start: 214.4, end: 218.2, en: 'A needs to understand correlation and causation.', zh: 'A 需要弄懂相关与因果。' },
+  { id: '4d', start: 208.4, end: 214.0, en: 'A’s model breaks at the joint where a correlation is read as a cause.', zh: 'A 的模型在关键接合处断裂——在那里，相关被当成了因果。' },
+  { id: '4e', start: 214.4, end: 218.2, en: 'Whether grades show lasting learning is a second question.', zh: '成绩能否说明持久的学习，是另一个问题。' },
   { id: '4f', start: 218.8, end: 222.4, en: 'B’s model stands, but it sways.', zh: 'B 的模型没有倒，但在摇晃。' },
   { id: '4g', start: 222.8, end: 227.4, en: 'The evidence is thin, and other explanations go unanswered.', zh: '证据单薄，其他解释也没有得到回应。' },
   { id: '4h', start: 227.8, end: 234.2, en: 'Maybe stronger students use AI more. Maybe AI-allowed tasks are easier to score well on.', zh: '也许是成绩更好的学生更常使用 AI；也许允许使用 AI 的任务本来就更容易拿高分。' },
-  { id: '4i', start: 235.0, end: 242.0, en: 'The decisive problem is the one that, once addressed, changes how the others look.', zh: '决定性的问题，是那个一旦解决、就会改变其他问题面貌的问题。' },
-  { id: '4j', start: 242.6, end: 249.6, en: 'That priority comes from what we observed. Not every weak point is a principal contradiction.', zh: '这个优先次序来自我们的观察。并不是每个薄弱点都是主要矛盾。' },
+  { id: '4i', start: 235.0, end: 242.0, en: 'In each model, the claim outruns its evidence. Resolve that, and the other flaws look different.', zh: '在两个模型里，结论都超出了证据所能支撑的范围。解决了这一点，其他毛病的面貌也随之改变。' },
+  { id: '4j', start: 242.6, end: 249.6, en: 'That priority comes from what we observed: a vague sentence is a flaw, not the principal contradiction.', zh: '这个优先次序来自我们的观察：一句含糊的话只是毛病，而不是主要矛盾。' },
 
   // 05 Learning Across Time
   { id: '5a', start: 250.8, end: 257.6, en: 'Learning unfolds over time. Three linked islands: today’s assignment, a later assessment, and an unfamiliar problem.', zh: '学习在时间中展开。三座相连的岛屿：今天的作业、之后的测评，以及一个陌生的问题。' },
-  { id: '5b', start: 258.2, end: 263.4, en: 'A strong result on the first island says little about the other two.', zh: '在第一座岛上取得好成绩，并不能说明另外两座岛上的情况。' },
+  { id: '5b', start: 258.2, end: 263.4, en: 'Success on the first island isn’t enough to judge the other two.', zh: '在第一座岛上取得成功，还不足以判断另外两座岛上的情况。' },
   { id: '5c', start: 264.0, end: 270.8, en: 'After the follow-up, A changes strategy: attempt first, then ask for a hint, not an answer.', zh: '经过老师的追问，A 改变了策略：先自己尝试，再向 AI 要提示，而不是要答案。' },
   { id: '5d', start: 271.4, end: 278.8, en: 'B, meanwhile, meets a convincing suggestion: a confident summary citing a study that seems to settle the question.', zh: '与此同时，B 遇到了一个很有说服力的建议：一段自信的总结，引用了一项似乎能一锤定音的研究。' },
   { id: '5e', start: 279.4, end: 286.0, en: 'B checks the source. The study doesn’t exist, and the claim treats a correlation as a cause.', zh: 'B 核查了来源。那项研究根本不存在，而且这个说法把相关当成了因果。' },
-  { id: '5f', start: 286.6, end: 291.6, en: 'Good habits on one day don’t guarantee good judgment on the next.', zh: '某一天的好习惯，并不能保证下一次的判断同样可靠。' },
+  { id: '5f', start: 286.6, end: 291.6, en: 'Good judgment isn’t banked once; it has to be renewed each time.', zh: '好的判断不是一劳永逸的，每一次都需要重新做出。' },
   { id: '5g', start: 292.4, end: 297.0, en: 'These lines are possible trajectories, not measurements.', zh: '这些线条是可能的轨迹，而不是测量数据。' },
   { id: '5h', start: 297.6, end: 304.0, en: 'Each can bend with the students’ next decisions, and with how the next task is designed.', zh: '每一条都可能随着学生接下来的决定、以及下一项任务的设计而改变方向。' },
   { id: '5i', start: 304.8, end: 309.2, en: 'Both students have changed, and neither is finished.', zh: '两位学生都发生了变化，而且变化还没有结束。' },
@@ -86,12 +87,12 @@ export const CUES = [
   { id: '6d', start: 323.6, end: 326.2, en: 'Verify what the AI said.', zh: '核实 AI 所说的内容。' },
   { id: '6e', start: 326.4, end: 329.2, en: 'Try the idea on a new case.', zh: '在新的情境中运用这个想法。' },
   { id: '6f', start: 329.4, end: 331.2, en: 'Then revise.', zh: '然后修正。' },
-  { id: '6g', start: 332.0, end: 336.4, en: 'Now both face a new example, with the AI switched off.', zh: '现在，两人面对一个新的例子，AI 已经关闭。' },
+  { id: '6g', start: 331.6, end: 336.6, en: 'With the AI off, a new example: study-group students earn higher grades.', zh: '关掉 AI，换一个新例子：参加学习小组的学生成绩更高。' },
   { id: '6h', start: 337.0, end: 341.4, en: 'A explains why a correlation alone can’t settle a causal question.', zh: 'A 解释了为什么仅凭相关性无法回答因果问题。' },
-  { id: '6i', start: 341.8, end: 347.6, en: 'B names two alternative explanations, and the evidence that would rule them out.', zh: 'B 指出了两种替代解释，以及能够排除它们的证据。' },
+  { id: '6i', start: 341.8, end: 347.6, en: 'B names two other explanations, prior knowledge and effort, and how to test them.', zh: 'B 提出了另外两种解释——原有基础和努力程度——以及如何检验它们。' },
   { id: '6j', start: 348.2, end: 355.4, en: 'A week later, they revisit it. Some of it held; some had faded. That’s useful information too.', zh: '一周后，他们再回头看这道题。有些内容记住了，有些已经淡忘。这同样是有用的信息。' },
   { id: '6k', start: 355.8, end: 363.2, en: 'Delayed, independent, transfer tasks provide evidence of understanding: stronger than one good grade, but still evidence, not proof.', zh: '延迟的、独立的、迁移性的任务能提供理解的证据：比一次好成绩更有力，但仍然是证据，而不是证明。' },
-  { id: '6l', start: 363.8, end: 372.2, en: 'Social practice is a broader philosophical idea: the whole of human activity in which ideas are tested against the world.', zh: '社会实践是一个更宽广的哲学概念：人类在改造世界的全部活动中检验自己的认识。' },
+  { id: '6l', start: 363.8, end: 372.2, en: 'Social practice is a broader philosophical idea: the whole of human activity that changes the world and tests ideas against it.', zh: '社会实践是一个更宽广的哲学概念：人类在改造世界的全部活动中检验自己的认识。' },
   { id: '6m', start: 372.8, end: 379.4, en: 'A classroom check is only a small, designed part of it.', zh: '课堂上的检验，只是其中经过设计的一小部分。' },
 
   // 07 Ask a Better Question
@@ -103,6 +104,7 @@ export const CUES = [
   { id: '7f', start: 400.0, end: 402.6, en: 'How can we test our judgment?', zh: '我们如何检验自己的判断？' },
   { id: '7g', start: 403.4, end: 406.8, en: 'A higher grade alone can’t answer them.', zh: '单凭一次更高的成绩，回答不了这些问题。' },
   { id: '7h', start: 407.4, end: 414.4, en: 'What can is a learner who makes decisions about the tool, and then checks whether those decisions worked.', zh: '能回答它们的，是一个对如何使用工具做出决定、并检验这些决定是否有效的学习者。' },
+  { id: '7i', endCard: true, start: 414.8, end: 419.6, en: 'Next time: try first, ask AI for feedback, then explain it yourself.', zh: '下一次：先自己尝试，再请 AI 反馈，最后用自己的话解释。' },
 ];
 
 export const TITLE = {

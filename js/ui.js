@@ -9,6 +9,7 @@ const fmt = (t) => {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 };
 const pad2 = (n) => String(n).padStart(2, '0');
+const END_CARD = CUES.find((c) => c.endCard).start; // the HUD clears for the end card
 /** Captions sit in an inline span, so each wrapped line gets its own snug background. */
 function setCaption(p, text) {
   p.textContent = '';
@@ -392,6 +393,6 @@ export class UI {
     }
     // the opening card says "dramatization"; the corner badge takes over once it leaves
     document.body.classList.toggle('drama-intro', t < CUES[1].start);
-    document.body.classList.toggle('at-end', t >= CUES[CUES.length - 1].end + 0.3);
+    document.body.classList.toggle('at-end', t >= END_CARD - 0.2);
   }
 }

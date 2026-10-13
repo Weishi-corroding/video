@@ -121,7 +121,7 @@ export function build(ctx) {
     const g = new THREE.Group();
     if (kind === 0) { g.add(at(box(0.7, 0.55, 0.6, thingMat, 0.04), 0, 0.275, 0)); g.add(at(mesh(new THREE.ConeGeometry(0.52, 0.4, 4), thingMat), 0, 0.75, 0)); g.children[1].rotation.y = Math.PI / 4; }
     else if (kind === 1) { const gear = mesh(new THREE.TorusGeometry(0.32, 0.1, 6, 10), thingMat); gear.rotation.x = Math.PI / 2; gear.position.y = 0.1; g.add(gear); }
-    else if (kind === 2) { g.add(at(cyl(0.12, 0.12, 0.5, thingMat, 12), 0, 0.25, 0)); g.add(at(mesh(new THREE.SphereGeometry(0.24, 16, 12), thingMat), 0, 0.62, 0)); }
+    else if (kind === 2) { g.add(at(mesh(new THREE.ConeGeometry(0.34, 0.5, 20), thingMat), 0, 0.25, 0)); g.add(at(cyl(0.07, 0.07, 0.34, thingMat, 12), 0, 0.64, 0)); }
     else if (kind === 3) { for (let k = 0; k < 3; k++) g.add(at(box(0.18, 0.12, 1.1, thingMat, 0.03), -0.3 + k * 0.3, 0.06, 0)); }
     else { g.add(at(box(1.1, 0.08, 0.3, thingMat, 0.03), 0, 0.42, 0)); g.add(at(cyl(0.05, 0.05, 0.42, thingMat, 8), -0.45, 0.21, 0)); g.add(at(cyl(0.05, 0.05, 0.42, thingMat, 8), 0.45, 0.21, 0)); }
     g.position.set(Math.cos(a) * r, -0.5, Math.sin(a) * r);
@@ -131,6 +131,14 @@ export function build(ctx) {
     things.push(g);
   }
   G.add(world);
+  // three recognisable kinds of practice, picked from the ring by kind and screen position
+  const pick = (kind, ang) => things.filter((g, i) => i % 5 === kind)
+    .reduce((best, g) => (Math.abs(Math.atan2(g.position.z, g.position.x) - ang) < Math.abs(Math.atan2(best.position.z, best.position.x) - ang) ? g : best));
+  const forms = [[1, Math.PI - 0.25], [0, 0.25], [2, -2.6]].map(([k, a]) => {
+    const tip = at(new THREE.Object3D(), 0, 1.25, 0); // label anchor just above the prop
+    pick(k, a).add(tip);
+    return tip;
+  });
 
   // ---------- labels ----------
   const names = ['Independent attempt', 'Targeted assistance', 'Verification', 'Transfer', 'Revision'];
@@ -140,19 +148,21 @@ export function build(ctx) {
     nodes: nodes.map((n, i) => label({ html: `<b>${names[i]}</b>`, anchor: n, dy: 22, align: 'below', cls: `tag ${i === 1 ? 'amber' : 'mint'}`, zh: zhNames[i] })),
     off: label({ html: '<b>AI off</b>', anchor: ai, dy: -40, cls: 'tag ivory' , zh: 'AI 已关闭' }),
     newEx: label({ html: 'New example, no AI', anchor: [0, 0.4, 1.6], align: 'below', cls: 'tag ivory' }),
+    example: overlay('<div class="lead"><span class="muted">New example —</span> study-group students earn higher grades</div>', 'center-top', '新例子——参加学习小组的学生成绩更高'),
     a0: label({ html: 'correlation', anchor: wA.parts[0], dy: -16, cls: 'tag tiny' }),
     a1: label({ html: '≠', anchor: wA.parts[1], dy: -16, cls: 'tag tiny' }),
     a2: label({ html: 'cause', anchor: wA.parts[2], dy: -16, cls: 'tag tiny' }),
-    b0: label({ html: 'rival 1', anchor: wB.parts[0], dy: -16, cls: 'tag tiny' }),
-    b1: label({ html: 'rival 2', anchor: wB.parts[1], dy: -16, cls: 'tag tiny' }),
-    b2: label({ html: 'evidence to rule them out', anchor: wB.parts[2], dy: 16, align: 'below', cls: 'tag tiny' }),
+    b0: label({ html: 'prior knowledge?', anchor: wB.parts[0], dy: -16, cls: 'tag tiny' }),
+    b1: label({ html: 'effort?', anchor: wB.parts[1], dy: -16, cls: 'tag tiny' }),
+    b2: label({ html: 'test: compare similar students', anchor: wB.parts[2], dx: 34, align: 'left', cls: 'tag tiny' }),
     week: label({ html: '<b>One week later</b>', anchor: days[3], dy: -18, cls: 'tag mint', zh: '一周后' }),
     faded: label({ html: 'Some held · some faded: <b>useful information</b>', anchor: [0, 2.6, 0.2], cls: 'tag ivory' }),
     evDelayed: label({ html: '<b>Delayed</b>', anchor: days[6], dx: 16, align: 'left', cls: 'tag mint' }),
     evIndep: label({ html: '<b>Independent</b>', anchor: ai, dx: -96, dy: -6, align: 'right', cls: 'tag mint' }),
     evTransfer: label({ html: '<b>Transfer</b>', anchor: nodes[3], dx: 30, dy: -40, align: 'left', cls: 'tag mint' }),
     evidence: overlay('<div class="lead">Stronger evidence <span class="muted">— still not proof</span></div>', 'center-top', '更有力的证据——但仍不是证明'),
-    practice: label({ html: '<b>Social practice</b><br>ideas tested against the world', anchor: [0, -0.4, -14.5], dy: -14, cls: 'tag ivory', zh: '社会实践：在改造世界的活动中检验认识' }),
+    practice: label({ html: '<b>Social practice</b><br>changing the world, and testing ideas against it', anchor: [0, -0.4, -14.5], dy: -14, cls: 'tag ivory', zh: '社会实践：在改造世界的活动中检验认识' }),
+    forms: forms.map((g, i) => label({ html: ['production', 'social life', 'scientific experiment'][i], anchor: g, dy: -10, cls: 'tag small ivory', zh: ['物质生产', '社会生活', '科学实验'][i] })),
     classroom: label({ html: '<b>Classroom checks</b><br>a small, designed part', anchor: [0, 0.1, R], dy: 10, align: 'below', cls: 'tag mint', zh: '课堂检验：其中经过设计的一小部分' }),
   };
 
@@ -192,9 +202,11 @@ export function build(ctx) {
     token.visible = tokVis > 0.01;
     token.position.set(Math.cos(ta0) * R, 0.45 + Math.sin(t * 3) * 0.04, Math.sin(ta0) * R);
     token.scale.setScalar(Math.max(0.001, tokVis));
+    const quiet = 1 - 0.65 * win(t, c['6g'].s + 0.4, c['6j'].s, 0.8);
+    setGlow(ring, 0.6 * quiet);
     nodes.forEach((n, i) => {
       const near = Math.exp(-Math.pow(angDist(ta0, ANG[i]) / 0.22, 2)) * tokVis;
-      setGlow(n.userData.top, 0.3 + 2.0 * near);
+      setGlow(n.userData.top, (0.3 + 2.0 * near) * quiet);
       icons[i].position.y = (i === 2 || i === 4 ? 0.75 : 0.31) + 0.12 * near;
     });
 
@@ -211,7 +223,7 @@ export function build(ctx) {
     orb.color.copy(amberC).lerp(offC, off);
     aiBars.forEach((b) => setGlow(b, 0.6 * (1 - off) + 0.05));
     fade(aiGlass, 1 - 0.6 * off);
-    ai.position.y = 4.0 - 0.7 * ease.inOut(off) + Math.sin(t * 0.9) * 0.05 * (1 - off);
+    ai.position.y = 4.0 - 1.0 * ease.inOut(off) + Math.sin(t * 0.9) * 0.05 * (1 - off);
 
     // their work without AI
     const sH = c['6h'].s, sI = c['6i'].s, sJ = c['6j'].s;
@@ -248,6 +260,7 @@ export function build(ctx) {
     L.nodes.forEach((l, i) => l.set(win(t, cueStarts[i], sG + 0.6, 0.4)));
     L.off.set(win(t, sG + 1.0, sJ, 0.4));
     L.newEx.set(win(t, sG + 1.4, sH + 0.5, 0.4));
+    L.example.set(win(t, sG + 0.8, sI + 4.6, 0.5));
     const la = win(t, sH + 1.0, sK, 0.4), lb = win(t, sI + 1.0, sK, 0.4);
     L.a0.set(la); L.a1.set(la); L.a2.set(la * (1 - 0.5 * fadeK));
     L.b0.set(lb); L.b1.set(lb * (1 - 0.5 * fadeK)); L.b2.set(lb);
@@ -258,6 +271,7 @@ export function build(ctx) {
     L.evTransfer.set(win(t, sK + 1.8, sL, 0.4));
     L.evidence.set(win(t, sK + 2.4, sL, 0.5));
     L.practice.set(win(t, sL + 2.2, c['6m'].e + 0.6, 0.6));
+    L.forms.forEach((l, i) => l.set(win(t, sL + 3.2 + i * 0.6, c['6m'].e - 0.3, 0.5)));
     L.classroom.set(win(t, c['6m'].s, c['6m'].e + 0.6, 0.5));
   }
 

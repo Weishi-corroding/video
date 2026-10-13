@@ -125,6 +125,9 @@ export function build(ctx) {
     reflect: overlay(`<div class="reflect"><div class="ring"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="44" class="bg"/><circle cx="50" cy="50" r="44" class="fg"/></svg></div><h3>Reflection pause</h3><p>Which part of your task could AI support?<br>Which part must stay yours?</p><small>Need longer? Press <kbd>Space</kbd> to pause.</small></div>`, 'center-mid', '你的任务中，哪一部分可以借助 AI？哪一部分必须由你自己完成？'),
   };
   const ringFg = L.reflect.el.querySelector('.fg');
+  // each card speaks in two beats: what AI can offer, then what the learner must do
+  const beats = [L.c1, L.c2, L.c3].map((l) => [l.el.querySelector('.row.ai'), l.el.querySelector('.row.me')]);
+  const rowFade = (el, k) => { el.style.opacity = (0.12 + 0.88 * k).toFixed(3); };
 
   function update(lt) {
     const t = lt;
@@ -204,6 +207,9 @@ export function build(ctx) {
     L.c1.set(win(t, sB + 0.8, sD - 0.2, 0.5));
     L.c2.set(win(t, sD + 0.6, sG - 0.2, 0.5));
     L.c3.set(win(t, sG + 0.6, c['3j'].s - 0.2, 0.5));
+    // the learner's line in 3c starts about three seconds in
+    const beatT = [[sC, sC + 3.0], [sE, sF], [sH, sI]];
+    beats.forEach(([ai, me], i) => { rowFade(ai, ramp(t, beatT[i][0] - 0.2, beatT[i][0] + 0.4)); rowFade(me, ramp(t, beatT[i][1] - 0.2, beatT[i][1] + 0.4)); });
     L.breaks.set(win(t, sC + 6.0, sD, 0.4));
     L.hintL.set(win(t, sE + 0.4, sF + 0.4, 0.3));
     L.alone.set(win(t, sF + 5.0, sG, 0.4));
