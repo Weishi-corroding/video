@@ -1,5 +1,6 @@
-// Offscreen Vulkan renderer: sun shadows, a multisampled HDR scene pass, bloom, tone mapping and a
-// grade, read back as RGBA8 for encoding.
+// Offscreen Vulkan renderer: sun shadows, a multisampled HDR scene pass with a normal and depth
+// buffer, ambient occlusion, depth of field, bloom, tone mapping and a grade, read back as RGBA8 for
+// encoding.
 #pragma once
 #include <cstdint>
 #include <memory>
@@ -20,6 +21,21 @@ struct PostSettings {
   vec2 focusCenter{0.5f, 0.5f};  // 0..1, y down
   float focusRadius = 0.25f, focusAmount = 0;
   float dither = 1;  // amount of noise added before quantising to 8 bits
+
+  // Screen-space ambient occlusion: darkens creases and contact points.
+  float aoStrength = 0;  // 0 = off
+  float aoRadius = 0.6f; // world units near the camera (grows slowly with distance)
+  float aoPower = 1.4f;
+
+  // Depth of field: sharp at `dofFocus` (distance along the view), blurring with distance from it.
+  float dofFocus = 10;
+  float dofAperture = 0;    // blur radius, in pixels at 1080p, of something infinitely far away (0 = off)
+  float dofMaxRadius = 18;  // largest blur radius, in pixels at 1080p
+
+  // Final grade in display space: contrast around mid grey, then gain and a lift of the shadows.
+  float contrast = 1;
+  vec3 gain{1, 1, 1};
+  vec3 lift{0, 0, 0};
 };
 
 struct RendererOptions {

@@ -21,16 +21,19 @@ Update buildC6(Ctx& ctx) {
   auto helixCurve = [&](float s0, float s1) -> const Curve& {
     return keepCurve(new FnCurve([=](float u) { return at(lerp(s0, s1, u)); }));
   };
-  Material* tubeMat = basic({.color = 0xffe3a0, .opacity = 0.95f, .transparent = true});
-  Geometry* tubeGeo = geo::tube(helixCurve(0, 1), 240, 0.13f, 10, false);
+  Material* tubeMat = standard({.color = 0xf3d58a, .roughness = 0.9f, .emissive = 0xffd98a, .emissiveIntensity = 0.55f,
+                                 .opacity = 0.97f, .transparent = true, .side = Side::Double, .paper = 1});
+  Geometry* tubeGeo = geo::ribbon(helixCurve(0, 1), 240, 0.62f);
   Mesh* tube = eng::mesh(tubeGeo, tubeMat);
-  Mesh* ghostTube = eng::mesh(geo::tube(helixCurve(0, 1.22f), 260, 0.06f, 6, false),
-                              basic({.color = 0xbfc8e8, .opacity = 0.25f, .transparent = true, .depthWrite = false}));
-  Mesh* beyond = eng::mesh(geo::tube(helixCurve(1, 1.22f), 60, 0.1f, 8, false), basic({.color = 0xffe3a0, .opacity = 0.4f, .transparent = true, .depthWrite = false}));
+  Mesh* ghostTube = eng::mesh(geo::tube(helixCurve(0, 1.22f), 260, 0.035f, 5, false),
+                              basic({.color = 0xdfe2f0, .opacity = 0.25f, .transparent = true, .depthWrite = false}));
+  Mesh* beyond = eng::mesh(geo::ribbon(helixCurve(1, 1.22f), 60, 0.5f),
+                           standard({.color = 0xf3d58a, .roughness = 0.9f, .emissive = 0xffd98a, .emissiveIntensity = 0.4f, .opacity = 0.4f,
+                                     .transparent = true, .depthWrite = false, .side = Side::Double, .paper = 1}));
   Node* helix = group();
   helix->add(tube, ghostTube, beyond);
   W.scene.add(helix);
-  const int perSeg = 10 * 6;
+  const int perSeg = 6;
   auto growTo = [=](float s) { tubeGeo->setDrawRange(0, (uint32_t)std::ceil(240 * clamp(s)) * perSeg); };
 
   // A column of dots from stage 1 to stage 3: same direction, different height.
@@ -93,7 +96,7 @@ Update buildC6(Ctx& ctx) {
     g->add(place(rbox(0.3f, 0.2f, 0.24f, 0x3a4250, 0.03f), 0.45f, 1.05f, 0.1f));
     g->add(place(figure({.shirt = 0xe9e2d0, .skin = 0xe8c4a4, .apron = true, .hair = 0x2a2220}).root, 0, 0, -0.55f));
     g->add(place(person(), 0.25f, 0, 1.0f, PI));
-    Sign* tag = sign({.w = 0.9f, .h = 0.26f, .text = "OPEN 9–5", .px = 100, .fg = 0x2f3a44, .bg = 0xfbf6ea});
+    Sign* tag = sign({.w = 0.9f, .h = 0.26f, .text = script::tr("OPEN 9–5", "营业 9–5"), .px = 100, .fg = 0x2f3a44, .bg = 0xfbf6ea});
     tag->mesh->position = {0, 1.6f, 0.46f};
     g->add(tag->mesh);
   });
@@ -102,7 +105,7 @@ Update buildC6(Ctx& ctx) {
     g->add(place(shelf(1.2f, 1.6f, 0.4f, {.seed = 29, .rows = 4}), -0.9f, 0, -1.25f));
     Node* sw = shelf(1.0f, 1.1f, 0.35f, {.seed = 31, .rows = 3});
     g->add(place(sw, 0.85f, 0, -1.25f));
-    Sign* swS = sign({.w = 1.0f, .h = 0.24f, .text = "SWAP · STUDY", .px = 100, .fg = 0xfff7e6, .bg = 0x2f6b55});
+    Sign* swS = sign({.w = 1.0f, .h = 0.24f, .text = script::tr("SWAP · STUDY", "换书 · 自习"), .px = 100, .fg = 0xfff7e6, .bg = 0x2f6b55});
     swS->mesh->position = {0.85f, 1.32f, -1.1f};
     g->add(swS->mesh);
     g->add(place(table(1.3f, 0.8f), 0, 0, 0.35f));

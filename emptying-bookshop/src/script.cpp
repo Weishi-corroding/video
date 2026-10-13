@@ -4,6 +4,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstdint>
 #include <sstream>
 
 namespace {
@@ -15,7 +16,7 @@ const std::vector<RawChapter> RAW = {
     {"An Emptying Shop", "日渐冷清的书店", 1.2f, {
       {"1a", 4.6f, 0.0f,
        "This is Jia, who runs the student second-hand bookshop on a university campus.",
-       "这是小嘉，在一所大学校园里经营学生二手书店。"},
+       "这是小嘉，在一所大学的校园里，经营着一家学生二手书店。"},
       {"1b", 0.0f, 0.0f,
        "It began years ago as a free swap shelf in a dormitory lounge, and grew into a proper shop.",
        "几年前，它只是宿舍休息室里的一个免费换书架，后来才发展成一家正式的书店。"},
@@ -202,12 +203,39 @@ const std::vector<RawChapter> RAW = {
 std::vector<Chapter> gChapters;
 std::vector<Cue> gCues;
 float gDuration = 0;
+Lang gLang = Lang::Zh;
 
 float round2(float x) { return std::round(x * 100) / 100; }
 
 }  // namespace
 
+const std::string& Cue::text() const { return script::lang() == Lang::Zh ? zh : en; }
+const std::string& Chapter::name() const { return script::lang() == Lang::Zh ? zh : title; }
+
 namespace script {
+
+void setLang(Lang l) { gLang = l; }
+Lang lang() { return gLang; }
+const char* code() { return gLang == Lang::Zh ? "zh" : "en"; }
+
+int hanzi(const std::string& s) {
+  // Decode UTF-8 and count code points in the CJK Unified Ideographs block.
+  int n = 0;
+  for (size_t i = 0; i < s.size();) {
+    unsigned char c = s[i];
+    uint32_t cp = c;
+    int len = c < 0x80 ? 1 : c < 0xE0 ? 2 : c < 0xF0 ? 3 : 4;
+    if (len > 1) {
+      cp = c & (0xFF >> (len + 1));
+      for (int k = 1; k < len && i + k < s.size(); k++) cp = (cp << 6) | (s[i + k] & 0x3F);
+    }
+    if (cp >= 0x4E00 && cp <= 0x9FFF) n++;
+    i += len;
+  }
+  return n;
+}
+
+float readingTime(const Cue& q) { return gLang == Lang::Zh ? hanzi(q.zh) / CPS : words(q.en) / WPS; }
 
 int words(const std::string& s) {
   std::istringstream in(s);
@@ -242,7 +270,7 @@ void layout(const std::map<std::string, float>& speech) {
       cue.zh = q.zh;
       auto it = speech.find(q.id);
       cue.speech = it == speech.end() ? 0 : it->second;
-      float slot = std::max<float>({MIN, words(q.en) / WPS + 0.4f, cue.speech + 0.4f}) + q.hold;
+      float slot = std::max<float>({MIN, readingTime(cue) + 0.4f, cue.speech + 0.4f}) + q.hold;
       cue.s = round2(t);
       cue.e = round2(t + slot);
       t = cue.e + (j + 1 < rc.cues.size() ? GAP : 0);

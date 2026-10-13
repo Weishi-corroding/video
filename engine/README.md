@@ -2,7 +2,8 @@
 
 `eng` renders 3D films offline. A program builds a scene, poses it for each moment of the film,
 and the engine renders that frame with Vulkan. It reads the frame back, draws 2D overlays (labels,
-captions, titles) on top, and pipes the frames to ffmpeg as an H.264 MP4. It needs no window or
+captions, titles) on top, and pipes the frames to ffmpeg as an H.264 MP4, with a soundtrack the
+program can mix and even compose with the engine's small synthesizer. It needs no window or
 display: any Vulkan 1.2 device works, including Mesa's software rasteriser (llvmpipe), so it also
 runs on servers.
 
@@ -15,31 +16,56 @@ renderer that film used before.
   instanced meshes (per-instance matrix and colour), line segments, point clouds, camera-facing
   sprites and point lights.
 - **Geometry:** box, rounded box, plane, circle, sphere (with partial ranges), cylinder/cone,
-  capsule, torus, subdivided icosahedron, tubes along curves (drawable progressively with a draw
-  range), edge lines of any mesh. Curves: quadratic Bézier, Catmull-Rom, or any function, sampled by
-  arc length with parallel-transport frames.
+  capsule, torus, subdivided icosahedron, tubes and flat ribbons along curves (drawable
+  progressively with a draw range), shapes cut from card (any simple polygon, extruded, with the
+  faces and the cut edge separable), faceted copies of any mesh (one normal per triangle, like folded
+  paper), merged meshes, and edge lines. Curves: quadratic Bézier, Catmull-Rom, or any function,
+  sampled by arc length with parallel-transport frames.
 - **Materials:** a lit *standard* material and an unlit *basic* one. The standard material has
   Lambert diffuse plus GGX specular (height-correlated Smith visibility, Schlick Fresnel), with
   roughness, metalness and emission. Both take colour, opacity, an optional sRGB texture,
   front/back/double sides, depth test/write and fog.
+- **Paper:** a standard material with `paper` > 0 looks made of paper. A procedural, tileable sheet of
+  fibres is mapped onto it from three sides in object space, so it stays put on moving things. It
+  mottles the colour, adds a fine relief to the normal (a bump from the fibre height, no tangents
+  needed), and lets diffuse light wrap a little past the terminator. `Scene::paper` sets the scale and
+  strength, and can put the same fibres into the sky gradient, like a painted backdrop.
 - **Lights:** one sun with a soft shadow map (orthographic, 16 filtered comparisons, depth and
   normal bias), a second shadowless directional fill, a sky/ground hemisphere light, and up to
   four point lights with range falloff.
 - **Frame:** a sky gradient painted on a sphere around the origin, linear fog, 4× MSAA in a
   half-float HDR target, opaque objects sorted front to back, then transparent objects back to
-  front (double-sided ones in two passes, back faces first).
+  front (double-sided ones in two passes, back faces first). Opaque surfaces also write their
+  view-space normal and depth to a second target for the passes below.
+- **Ambient occlusion:** a hemisphere of samples above each surface at half resolution, then a
+  blur that keeps to similar depths. It darkens creases and contact points, and spares bright
+  emissive surfaces.
+- **Depth of field:** a circle of confusion from the distance to a focus plane, a gather of 37
+  samples at half resolution with foreground and background kept apart (so a blurred foreground can
+  spill over sharp things behind it, but not the other way round), blended in by each pixel's
+  blur. Wide shots of a model with a strong blur read as a miniature (tilt-shift). The sky stays sharp.
 - **Post-processing:** a five-level bloom (bright pass, separable Gaussian blurs at halving
   resolutions, weighted sum) and ACES filmic tone mapping with exposure. Then a grade (saturation,
-  vignette, fade to black, flash to white, a focus mask that dims and greys everything outside a
-  circle), sRGB encoding and a little dither before quantising to 8 bits.
+  a focus mask that dims and greys everything outside a circle, contrast, gain and a lift of the
+  shadows, vignette, fade to black, flash to white), sRGB encoding and a little dither before
+  quantising to 8 bits.
 - **2D:** a premultiplied-alpha canvas (anti-aliased rectangles, rounded rectangles, rings,
   circles, Gaussian-blurred masks for shadows) and text shaped with HarfBuzz and rasterised with
   FreeType. Text supports variable-font weights, letter spacing, uppercase and strike-through.
-  Paragraphs wrap with Latin and Chinese line-breaking rules and fall back to a CJK font for
-  missing glyphs. Canvases become textures (signs in the scene) or are composited onto finished
+  Paragraphs wrap with Latin and Chinese line-breaking rules. There are Chinese sans and serif
+  families with bold faces; Latin text falls back to the matching Chinese family for characters it
+  lacks, and the other way round. Canvases become textures (signs in the scene) or are composited onto finished
   frames, with an optional backdrop blur behind each panel.
 - **Output:** `VideoWriter` pipes RGBA frames to ffmpeg (x264, BT.709 tagged, optional AAC audio).
-  `savePng` writes stills, and `Audio` loads, mixes and saves mono WAV for narration tracks.
+  `savePng` writes stills, and `Audio` loads, resamples (windowed sinc), pans, mixes and saves mono or
+  stereo WAV.
+- **Synthesizer** (`eng/synth.h`): notes rendered offline into a stereo buffer through a shared
+  reverb (after Freeverb). Instruments: a felt piano (additive partials with string stiffness, a
+  two-stage decay and a soft hammer), a plucked string and a bass (Karplus-Strong), a string pad
+  (detuned band-limited saws through a state-variable filter), a music box, and a few noises (shaker,
+  wood-block tick, thud, camera shutter, a rising swell). Chord names ("A/C#", "Gmaj7") spell out
+  voicings, a ducking curve lowers music under a voice, and a look-ahead limiter keeps the mix under
+  full scale.
 
 ## Using it
 
@@ -99,10 +125,11 @@ Khronos validation layer (`vulkan-validationlayers`).
 ## Layout
 
 ```
-include/eng/   math.h  scene.h  geometry.h  curve.h  material.h  canvas.h  text.h  renderer.h  video.h  (eng.h: all of them)
-src/           the implementations; renderer.cpp holds all the Vulkan code
+include/eng/   math.h  scene.h  geometry.h  curve.h  material.h  canvas.h  text.h  renderer.h  video.h  synth.h
+               (eng.h: all of them)
+src/           the implementations; renderer.cpp holds all the Vulkan code, paper.cpp makes the fibre sheet
 shaders/       mesh, points and sprite vertex shaders, the lit/unlit fragment shader, shadow depth,
-               sky, and the post passes (bright, blur, final)
+               sky, and the post passes (ssao, aoblur, dofpre, dofgather, bright, blur, final)
 ```
 
 ## Licence

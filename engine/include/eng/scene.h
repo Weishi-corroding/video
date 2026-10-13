@@ -130,6 +130,14 @@ struct Scene : Node {
   DirectionalLight sun;   // the only light that casts shadows
   DirectionalLight fill;  // a second, shadowless directional light (intensity 0 = off)
   float exposure = 1;
+  // The paper look for materials with `paper` > 0: a tileable sheet of fibres mapped in object space.
+  struct {
+    float tile = 3;        // world units covered by one tile of the fibre pattern
+    float relief = 0.6f;   // height of the fibre relief (hundredths of a world unit)
+    float mottle = 0.14f;  // how much the fibres vary the colour
+    float wrap = 0.3f;     // diffuse light wrapping past the terminator, as in thin paper
+    float sky = 0.06f;     // fibre texture on the sky gradient, as on a painted backdrop
+  } paper;
   Scene() : Node(NodeKind::Group) { fill.intensity = 0; }
   void updateWorld() { Node::updateWorld(mat4::identity()); }
 };

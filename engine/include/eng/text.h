@@ -7,7 +7,10 @@
 
 namespace eng {
 
-enum class Font { Sans, Serif, SerifItalic, CJK };
+// Latin families, and Chinese ones. A Chinese family asked for at weight 600 or more uses its bold
+// file if one is registered. Characters a font lacks come from its counterpart: Sans <-> CJK,
+// Serif -> CJKSerif.
+enum class Font { Sans, Serif, SerifItalic, CJK, CJKBold, CJKSerif, CJKSerifBold };
 
 // Register the font file for a family. Variable fonts get their weight from the style.
 void setFontFile(Font f, const std::string& path);

@@ -51,7 +51,23 @@ std::map<std::string, hb_face_t*>& hbFaces() {
   return m;
 }
 
+bool registered(Font f) { return fontFiles().count(f) > 0; }
+
+// The file to use for a family at a weight: bold Chinese faces, and Chinese serif falling back to sans.
+Font resolve(Font f, float weight) {
+  bool bold = weight >= 600;
+  if (f == Font::CJKSerif && !registered(Font::CJKSerif)) f = Font::CJK;
+  if (f == Font::CJKSerifBold && !registered(Font::CJKSerifBold)) f = registered(Font::CJKSerif) ? Font::CJKSerif : Font::CJK;
+  if (f == Font::CJKBold && !registered(Font::CJKBold)) f = Font::CJK;
+  if (bold && f == Font::CJK && registered(Font::CJKBold)) return Font::CJKBold;
+  if (bold && f == Font::CJKSerif && registered(Font::CJKSerifBold)) return Font::CJKSerifBold;
+  return f;
+}
+
+bool isCJKFamily(Font f) { return f == Font::CJK || f == Font::CJKBold || f == Font::CJKSerif || f == Font::CJKSerifBold; }
+
 int instance(Font f, float weightF) {
+  f = resolve(f, weightF);
   int weight = (int)std::lround(weightF);
   auto& v = insts();
   for (size_t i = 0; i < v.size(); i++)
@@ -160,7 +176,9 @@ Shaped shape(const std::vector<uint32_t>& cps, const TextStyle& st) {
   Shaped out;
   if (cps.empty()) return out;
   int primary = instance(st.font, st.weight);
-  int fallback = st.font == Font::CJK ? instance(Font::Sans, st.weight) : instance(Font::CJK, std::min(st.weight, 500.f));
+  Font fb = isCJKFamily(st.font) ? (st.font == Font::CJKSerif || st.font == Font::CJKSerifBold ? Font::Serif : Font::Sans)
+            : st.font == Font::Sans ? Font::CJK : Font::CJKSerif;
+  int fallback = instance(fb, st.weight);
   size_t i = 0;
   float pen = 0;
   while (i < cps.size()) {

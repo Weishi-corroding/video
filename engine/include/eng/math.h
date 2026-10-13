@@ -21,6 +21,7 @@ struct vec2 {
   vec2 operator+(vec2 o) const { return {x + o.x, y + o.y}; }
   vec2 operator-(vec2 o) const { return {x - o.x, y - o.y}; }
   vec2 operator*(float s) const { return {x * s, y * s}; }
+  float length() const { return std::sqrt(x * x + y * y); }
 };
 
 struct vec3 {

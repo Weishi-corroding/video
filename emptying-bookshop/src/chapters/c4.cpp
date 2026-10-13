@@ -49,7 +49,7 @@ Update buildC4(Ctx& ctx) {
 
   W.addLight({{T("4a", 1.5f), "analysis", 3}});
   W.addCrowd({{T("4a", 1), 0.3f, 2}});
-  W.addShop({{.t = T("4a"), .door = "OPEN\n9–5", .lit = 0.5f}, {.t = T("4g", 0.6f), .sign = 1}});
+  W.addShop({{.t = T("4a"), .door = script::tr("OPEN\n9–5", "营业\n9–5"), .lit = 0.5f}, {.t = T("4g", 0.6f), .sign = 1}});
 
   const CamKey main{.t = 0, .d = 3.0f, .p = {17, 8.8f, -3.0f}, .l = {17, 2.4f, -24}, .fov = 42};
   auto withT = [](CamKey k, float t, float d) { k.t = t; k.d = d; return k; };
@@ -70,16 +70,21 @@ Update buildC4(Ctx& ctx) {
   const uint32_t BLUE = 0x7aa2ff, VIOLET = 0xd08cff, GOLD = 0xffcf5a;
   auto pillar = [&](uint32_t color) {
     Node* g = group();
-    g->add(rbox(0.9f, 4.2f, 0.9f, mat(0x2c3446, {.rough = 0.5f}), 0.2f)->translateY(2.1f));
-    Mesh* cap = eng::mesh(sphereGeo(0.62f, 24, 16), standard({.color = color, .roughness = 0.4f, .emissive = color, .emissiveIntensity = 0.55f}));
-    cap->position.y = 4.55f;
+    // A column rolled from coloured card: fluted by its facets, with a base, a capital and a folded ball.
+    uint32_t card = Color::hex(color).lerp(Color::hex(0xf5ecda), 0.35f).toHex();
+    g->add(prop(facetedCylinder(0.42f, 0.46f, 3.9f, 12), mat(card, {.rough = 0.9f}))->translateY(2.15f));
+    g->add(rbox(1.2f, 0.25f, 1.2f, mat(0xf5ecda, {.rough = 0.9f}), 0.04f)->translateY(0.12f));
+    g->add(rbox(1.1f, 0.22f, 1.1f, mat(0xf5ecda, {.rough = 0.9f}), 0.04f)->translateY(4.16f));
+    Mesh* cap = eng::mesh(facetedBall(0.62f, 1), standard({.color = color, .roughness = 0.85f, .emissive = color, .emissiveIntensity = 0.35f, .paper = 1}));
+    cap->position.y = 4.85f;
+    cap->castShadow = true;
     g->add(cap);
     W.scene.add(g);
     return g;
   };
   Node* left = pillar(BLUE);
   Node* right = pillar(VIOLET);
-  auto cableMat = [](uint32_t color) { return standard({.color = color, .roughness = 0.4f, .emissive = color, .emissiveIntensity = 0.9f}); };
+  auto cableMat = [](uint32_t color) { return standard({.color = color, .roughness = 0.85f, .emissive = color, .emissiveIntensity = 0.9f, .paper = 0.5f}); };
   Rod cableL = rod(0.1f, cableMat(BLUE)), cableR = rod(0.1f, cableMat(VIOLET));
   W.scene.add(cableL.m, cableR.m);
   const vec3 anchorL{12.9f, 1.9f, -24.2f}, anchorR{21.1f, 1.9f, -24.2f};
@@ -87,7 +92,8 @@ Update buildC4(Ctx& ctx) {
   // The arch: each side depends on the other.
   Node* archG = group();
   archG->position.x = 17;
-  GrowTube archTube = growTube(arc({-8.4f, 4.6f, -25.5f}, {8.4f, 4.6f, -25.5f}, 4.4f), 0.07f, glow(0xf4efe6, 0.85f), 80, 8);
+  GrowTube archTube = growTube(arc({-8.4f, 4.6f, -25.5f}, {8.4f, 4.6f, -25.5f}, 4.4f), 0.09f,
+                               standard({.color = 0xf5ecda, .roughness = 0.9f, .emissive = 0xf5ecda, .emissiveIntensity = 0.3f, .paper = 1}), 80, 8);
   archG->add(archTube.mesh);
   W.scene.add(archG);
 
@@ -128,15 +134,17 @@ Update buildC4(Ctx& ctx) {
 
   // ---- the outside condition ----
   Node* outer = group();
-  Mesh* ringM = eng::mesh(geo::torus(41, 0.22f, 8, 160), glow(0xcfd6e0, 0.55f));
+  Mesh* ringM = eng::mesh(geo::torus(41, 0.22f, 8, 160), basic({.color = 0xf5ecda, .opacity = 0.55f, .transparent = true}));
   ringM->rotation.x = -PI / 2;
   outer->add(ringM);
   struct Arrow { Mesh* m; float a; };
   std::vector<Arrow> arrows;
-  Geometry* coneGeo = geo::cone(0.55f, 1.6f, 12);
+  // Arrows cut from card, pointing along their local +y like the cones they replace.
+  Geometry* coneGeo = geo::extrude({{0, 0.8f}, {-0.6f, 0.05f}, {-0.24f, 0.05f}, {-0.24f, -0.8f}, {0.24f, -0.8f}, {0.24f, 0.05f}, {0.6f, 0.05f}}, 0.08f);
   for (int i = 0; i < 18; i++) {
     float a = (i / 18.f) * PI * 2;
-    Mesh* cone = eng::mesh(coneGeo, glow(0xe8edf4, 0.85f));
+    Mesh* cone = eng::mesh(coneGeo, standard({.color = 0xf5ecda, .roughness = 0.9f, .emissive = 0xf5ecda, .emissiveIntensity = 0.25f,
+                                              .opacity = 0.85f, .transparent = true, .side = Side::Double, .paper = 1}));
     outer->add(cone);
     arrows.push_back({cone, a});
   }
@@ -144,7 +152,7 @@ Update buildC4(Ctx& ctx) {
   W.scene.add(outer);
   std::vector<Spark> sparks;
   for (int i = 0; i < 18; i++) {
-    Mesh* s = eng::mesh(sphereGeo(0.28f, 12, 8), glow(0xe8edf4, 1));
+    Mesh* s = eng::mesh(facetedBall(0.3f, 0), standard({.color = 0xfbf3e0, .roughness = 0.9f, .emissive = 0xffe8b0, .emissiveIntensity = 0.8f, .paper = 1}));
     float a = (i / 18.f) * PI * 2 + 0.17f;
     vec3 from{std::cos(a) * 40, 1.6f, -2 + std::sin(a) * 40};
     W.scene.add(s);

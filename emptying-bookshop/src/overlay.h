@@ -66,7 +66,7 @@ struct SafeArea {
 
 class Labels {
  public:
-  Labels(World& W, int width, int height, bool zh);
+  Labels(World& W, int width, int height);
   ~Labels();
   struct Label;
   Label* add(LabelSpec spec);
@@ -85,7 +85,7 @@ class Labels {
 
 class Captions {
  public:
-  Captions(int width, int height, bool zh);
+  Captions(int width, int height);
   // Draw the caption for the cue on screen at time t.
   void draw(uint8_t* frame, float t);
   // The safe area for labels, which stays clear of the caption band.

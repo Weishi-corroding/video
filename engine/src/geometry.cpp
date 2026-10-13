@@ -1,5 +1,6 @@
 #include "eng/geometry.h"
 
+#include <algorithm>
 #include <cmath>
 #include <memory>
 #include <unordered_map>
@@ -379,6 +380,149 @@ Geometry* points(const std::vector<vec3>& pts) {
   Geometry* g = lineSegments(pts);
   g->topology = Topology::Points;
   return g;
+}
+
+
+Geometry* flat(const Geometry& g) {
+  Builder b;
+  auto P = [&](uint32_t i) { return vec3{g.positions[i * 3], g.positions[i * 3 + 1], g.positions[i * 3 + 2]}; };
+  bool hasUv = g.uvs.size() == g.vertexCount() * 2;
+  size_t n = g.elementCount();
+  for (size_t t = 0; t + 2 < n; t += 3) {
+    uint32_t i[3];
+    for (int k = 0; k < 3; k++) i[k] = g.indices.empty() ? (uint32_t)(t + k) : g.indices[t + k];
+    vec3 a = P(i[0]), c1 = P(i[1]), c2 = P(i[2]);
+    vec3 nrm = cross(c1 - a, c2 - a);
+    if (nrm.lengthSq() < 1e-20f) continue;
+    nrm = nrm.normalized();
+    uint32_t base = (uint32_t)b.g->vertexCount();
+    for (int k = 0; k < 3; k++) b.vertex(P(i[k]), nrm, hasUv ? g.uvs[i[k] * 2] : 0, hasUv ? g.uvs[i[k] * 2 + 1] : 0);
+    b.tri(base, base + 1, base + 2);
+  }
+  return b.done();
+}
+
+namespace {
+// Ear clipping for a simple counter-clockwise polygon; returns index triples.
+std::vector<uint32_t> triangulate(const std::vector<vec2>& p) {
+  std::vector<uint32_t> out, idx(p.size());
+  for (size_t i = 0; i < p.size(); i++) idx[i] = (uint32_t)i;
+  auto crossz = [](vec2 a, vec2 b, vec2 c) { return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x); };
+  auto inside = [&](vec2 q, vec2 a, vec2 b, vec2 c) { return crossz(a, b, q) >= 0 && crossz(b, c, q) >= 0 && crossz(c, a, q) >= 0; };
+  int guard = 0;
+  while (idx.size() > 3 && guard++ < 100000) {
+    bool clipped = false;
+    for (size_t k = 0; k < idx.size(); k++) {
+      uint32_t ia = idx[(k + idx.size() - 1) % idx.size()], ib = idx[k], ic = idx[(k + 1) % idx.size()];
+      vec2 a = p[ia], b = p[ib], c = p[ic];
+      if (crossz(a, b, c) <= 1e-9f) continue;  // reflex or flat corner
+      bool ear = true;
+      for (uint32_t j : idx)
+        if (j != ia && j != ib && j != ic && inside(p[j], a, b, c)) { ear = false; break; }
+      if (!ear) continue;
+      out.insert(out.end(), {ia, ib, ic});
+      idx.erase(idx.begin() + (long)k);
+      clipped = true;
+      break;
+    }
+    if (!clipped) break;  // degenerate polygon: give up on the rest
+  }
+  if (idx.size() == 3) out.insert(out.end(), {idx[0], idx[1], idx[2]});
+  return out;
+}
+}  // namespace
+
+Geometry* extrude(const std::vector<vec2>& outlineIn, float depth, Part part) {
+  std::vector<vec2> pts = outlineIn;
+  float area = 0;
+  for (size_t i = 0; i < pts.size(); i++) {
+    const vec2 &a = pts[i], &c = pts[(i + 1) % pts.size()];
+    area += a.x * c.y - c.x * a.y;
+  }
+  if (area < 0) std::reverse(pts.begin(), pts.end());
+  vec2 mn{1e30f, 1e30f}, mx{-1e30f, -1e30f};
+  for (vec2 q : pts) {
+    mn = {std::min(mn.x, q.x), std::min(mn.y, q.y)};
+    mx = {std::max(mx.x, q.x), std::max(mx.y, q.y)};
+  }
+  float w = std::max(mx.x - mn.x, 1e-6f), h = std::max(mx.y - mn.y, 1e-6f);
+  Builder b;
+  float hz = depth / 2;
+  if (part != Part::Edges) {
+    std::vector<uint32_t> tris = triangulate(pts);
+    for (int side = 0; side < 2; side++) {
+      float z = side == 0 ? hz : -hz;
+      vec3 nrm{0, 0, side == 0 ? 1.f : -1.f};
+      uint32_t base = (uint32_t)b.g->vertexCount();
+      for (vec2 q : pts) b.vertex({q.x, q.y, z}, nrm, (q.x - mn.x) / w, (q.y - mn.y) / h);
+      for (size_t t = 0; t + 2 < tris.size(); t += 3) {
+        if (side == 0) b.tri(base + tris[t], base + tris[t + 1], base + tris[t + 2]);
+        else b.tri(base + tris[t], base + tris[t + 2], base + tris[t + 1]);
+      }
+    }
+  }
+  if (part != Part::Faces) {
+    float perim = 0;
+    for (size_t i = 0; i < pts.size(); i++) perim += (pts[(i + 1) % pts.size()] - pts[i]).length();
+    float u = 0;
+    for (size_t i = 0; i < pts.size(); i++) {
+      vec2 a = pts[i], c = pts[(i + 1) % pts.size()];
+      vec2 e = c - a;
+      float len = e.length();
+      if (len < 1e-7f) continue;
+      vec3 nrm = vec3{e.y, -e.x, 0}.normalized();
+      uint32_t base = (uint32_t)b.g->vertexCount();
+      float u1 = u + len / perim;
+      b.vertex({a.x, a.y, hz}, nrm, u, 1);
+      b.vertex({c.x, c.y, hz}, nrm, u1, 1);
+      b.vertex({a.x, a.y, -hz}, nrm, u, 0);
+      b.vertex({c.x, c.y, -hz}, nrm, u1, 0);
+      b.tri(base, base + 2, base + 1);
+      b.tri(base + 1, base + 2, base + 3);
+      u = u1;
+    }
+  }
+  return b.done();
+}
+
+Geometry* ribbon(const Curve& curve, int segments, float width, vec3 up) {
+  Builder b;
+  for (int i = 0; i <= segments; i++) {
+    float t = (float)i / segments;
+    vec3 p = curve.pointAt(t), tg = curve.tangentAt(t);
+    vec3 side = cross(tg, up);
+    if (side.lengthSq() < 1e-10f) side = cross(tg, vec3{1, 0, 0});
+    side = side.normalized();
+    vec3 nrm = cross(side, tg).normalized();
+    b.vertex(p - side * (width / 2), nrm, t, 0);
+    b.vertex(p + side * (width / 2), nrm, t, 1);
+  }
+  for (int i = 0; i < segments; i++) {
+    uint32_t a = (uint32_t)i * 2;
+    b.tri(a, a + 1, a + 2);
+    b.tri(a + 1, a + 3, a + 2);
+  }
+  return b.done();
+}
+
+Geometry* merge(const std::vector<std::pair<const Geometry*, mat4>>& parts) {
+  Builder b;
+  for (const auto& [g, m] : parts) {
+    mat3 nm = m.normalMatrix();
+    uint32_t base = (uint32_t)b.g->vertexCount();
+    size_t nv = g->vertexCount();
+    bool hasN = g->normals.size() == g->positions.size(), hasUv = g->uvs.size() == nv * 2;
+    for (size_t i = 0; i < nv; i++) {
+      vec3 p = m.transformPoint({g->positions[i * 3], g->positions[i * 3 + 1], g->positions[i * 3 + 2]});
+      vec3 nrm = hasN ? (nm * vec3{g->normals[i * 3], g->normals[i * 3 + 1], g->normals[i * 3 + 2]}).normalized() : vec3{0, 1, 0};
+      b.vertex(p, nrm, hasUv ? g->uvs[i * 2] : 0, hasUv ? g->uvs[i * 2 + 1] : 0);
+    }
+    if (g->indices.empty())
+      for (size_t i = 0; i + 2 < nv; i += 3) b.tri(base + (uint32_t)i, base + (uint32_t)i + 1, base + (uint32_t)i + 2);
+    else
+      for (size_t i = 0; i + 2 < g->indices.size(); i += 3) b.tri(base + g->indices[i], base + g->indices[i + 1], base + g->indices[i + 2]);
+  }
+  return b.done();
 }
 
 }  // namespace geo

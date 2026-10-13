@@ -59,6 +59,7 @@ struct ShopKey {
 // Per-frame screen effects. Chapters adjust these; applyFx() hands them to the renderer.
 struct Fx {
   float sat = 1, fade = 0, flash = 0;
+  float dof = 1;  // scales the depth-of-field blur
   std::optional<vec3> focus;
   float focusR = 0.2f, focusAmt = 0;
 };
@@ -79,6 +80,9 @@ struct World {
   std::vector<std::function<void(float)>> updaters;
 
   std::vector<Material*> nightMats, lamps;
+  std::vector<Node*> clouds;
+  std::vector<float> cloudY;
+  std::vector<Material*> cloudMats;
   Material* starMat = nullptr;
   Node* campus = nullptr;
   Node* libraryGroup = nullptr;
@@ -96,8 +100,8 @@ struct World {
     float phase, speed, side, gate, bob;
   };
   struct Crowd {
-    InstancedMesh* bodies = nullptr;
-    InstancedMesh* heads = nullptr;
+    InstancedMesh *legs = nullptr, *bodies = nullptr, *heads = nullptr, *hair = nullptr, *eyes = nullptr, *armsL = nullptr, *armsR = nullptr;
+    std::vector<InstancedMesh*> parts() const { return {legs, bodies, heads, hair, eyes, armsL, armsR}; }
     std::vector<Walker> walkers;
     std::vector<const Curve*> curves;
     std::vector<float> lens;

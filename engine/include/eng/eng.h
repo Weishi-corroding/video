@@ -7,5 +7,6 @@
 #include "math.h"
 #include "renderer.h"
 #include "scene.h"
+#include "synth.h"
 #include "text.h"
 #include "video.h"

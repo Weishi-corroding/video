@@ -38,7 +38,7 @@ Update buildC1(Ctx& ctx) {
   bubble->add(place(eng::mesh(cylinderGeo(1.5f, 1.5f, 0.02f, 40), matS(0xb5694f, 0.95f)), 0, 0.01f, 0.2f));
   bubble->add(place(sofa(0x7c8fa6), -0.4f, 0, 0.45f, 0.15f));
   bubble->add(place(shelf(1.1f, 1.3f, 0.35f, {.seed = 9, .rows = 3, .messy = true}), 1.15f, 0, -0.9f, -0.4f));
-  Sign* swap = sign({.w = 0.9f, .h = 0.26f, .text = "FREE SWAP", .px = 120, .fg = 0xfff7e6, .bg = 0xb5694f});
+  Sign* swap = sign({.w = 0.9f, .h = 0.26f, .text = script::tr("FREE SWAP", "免费换书"), .px = 120, .fg = 0xfff7e6, .bg = 0xb5694f});
   swap->mesh->position = {1.15f, 1.48f, -0.7f};
   swap->mesh->rotation.y = -0.4f;
   bubble->add(swap->mesh);

@@ -60,6 +60,19 @@ Geometry* tube(const Curve& curve, int tubularSegments, float radius, int radial
 Geometry* edges(const Geometry& g, float thresholdDeg = 1);
 Geometry* lineSegments(const std::vector<vec3>& points);
 Geometry* points(const std::vector<vec3>& points);
+
+// A copy where every triangle has its own vertices and its face normal: crisp folds, as in papercraft.
+Geometry* flat(const Geometry& g);
+// A shape cut from card: a simple polygon in x and y, extruded `depth` along z and centred on z = 0.
+// `part` picks the broad faces, the cut edge, or both (so the edge can take its own material).
+enum class Part { All, Faces, Edges };
+Geometry* extrude(const std::vector<vec2>& outline, float depth, Part part = Part::All);
+// A thin strip along a curve, `width` wide, lying across the curve with its normal toward `up` (use
+// Side::Double to see both sides). Indices run along the curve: a draw range of k * 6 indices draws
+// the first k segments.
+Geometry* ribbon(const Curve& curve, int segments, float width, vec3 up = {0, 1, 0});
+// Several geometries combined into one, each placed by a matrix.
+Geometry* merge(const std::vector<std::pair<const Geometry*, mat4>>& parts);
 }  // namespace geo
 
 }  // namespace eng

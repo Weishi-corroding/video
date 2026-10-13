@@ -1,5 +1,7 @@
 #include "eng/renderer.h"
 
+#include "paper.h"
+
 #include <vulkan/vulkan.h>
 
 #include <algorithm>
@@ -53,10 +55,24 @@ const uint32_t kBlurFrag[] =
 const uint32_t kFinalFrag[] =
 #include "final.frag.inc"
     ;
+const uint32_t kSsaoFrag[] =
+#include "ssao.frag.inc"
+    ;
+const uint32_t kAoBlurFrag[] =
+#include "aoblur.frag.inc"
+    ;
+const uint32_t kDofPreFrag[] =
+#include "dofpre.frag.inc"
+    ;
+const uint32_t kDofGatherFrag[] =
+#include "dofgather.frag.inc"
+    ;
 
 constexpr int kMaxTextures = 128;
 constexpr int kMaxPointLights = 4;
 constexpr int kBloomLevels = 5;
+constexpr int kAuxInputs = 4;   // extra inputs to the post passes: ambient occlusion, normal and depth, depth of field
+constexpr int kPaperSize = 512;
 constexpr VkFormat kHdrFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
 constexpr VkFormat kDepthFormat = VK_FORMAT_D32_SFLOAT;
 constexpr VkFormat kOutFormat = VK_FORMAT_R8G8B8A8_UNORM;
@@ -66,7 +82,7 @@ constexpr uint32_t F_LIT = 1, F_MAP = 2, F_INSTANCED = 4, F_ICOLOR = 8, F_RECEIV
 struct FrameUBO {
   mat4 viewProj, view, invViewProj, shadowViewProj, shadowMat;
   vec4 camPos, sunDir, sunColor, fillDir, fillColor, hemiSky, hemiGround, fogColor, fogRange, shadowParams, camRight, camUp, viewport, skyTop,
-      skyHorizon;
+      skyHorizon, paper, paperSky;
   vec4 pointPos[kMaxPointLights], pointColor[kMaxPointLights], pointParams[kMaxPointLights];
 };
 
@@ -117,14 +133,19 @@ struct Renderer::Impl {
   VkCommandBuffer cmd = VK_NULL_HANDLE;
   VkFence fence = VK_NULL_HANDLE;
   VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
-  bool anisotropy = false, largePoints = false, mipBlit = true;
+  bool anisotropy = false, largePoints = false, mipBlit = true, independentBlend = false;
 
   // Render targets.
-  Image msaaColor, depth, hdr, shadow, bright, bloomH[kBloomLevels], bloomV[kBloomLevels], out, white;
+  // gbuf holds the view-space normal (rgb) and the distance along the view (a) of the nearest opaque surface.
+  Image msaaColor, msaaAux, depth, hdr, gbuf, shadow, bright, bloomH[kBloomLevels], bloomV[kBloomLevels], out, white, paper;
+  // Half resolution: ambient occlusion (two for the blur), and depth of field (prefiltered, then gathered).
+  Image aoA, aoB, dofHalf, dofBlur;
   VkRenderPass scenePass = VK_NULL_HANDLE, shadowPass = VK_NULL_HANDLE, postPass = VK_NULL_HANDLE, outPass = VK_NULL_HANDLE;
   VkFramebuffer sceneFb = VK_NULL_HANDLE, shadowFb = VK_NULL_HANDLE, brightFb = VK_NULL_HANDLE, outFb = VK_NULL_HANDLE;
   VkFramebuffer bloomHFb[kBloomLevels]{}, bloomVFb[kBloomLevels]{};
-  VkSampler linearClamp = VK_NULL_HANDLE, shadowSampler = VK_NULL_HANDLE, texSampler = VK_NULL_HANDLE;
+  VkFramebuffer aoAFb = VK_NULL_HANDLE, aoBFb = VK_NULL_HANDLE, dofHalfFb = VK_NULL_HANDLE, dofBlurFb = VK_NULL_HANDLE;
+  VkSampler linearClamp = VK_NULL_HANDLE, nearestClamp = VK_NULL_HANDLE, shadowSampler = VK_NULL_HANDLE, texSampler = VK_NULL_HANDLE,
+            repeatSampler = VK_NULL_HANDLE;
 
   // Descriptors and pipelines.
   VkDescriptorSetLayout sceneLayout = VK_NULL_HANDLE, postLayout = VK_NULL_HANDLE;
@@ -132,9 +153,12 @@ struct Renderer::Impl {
   VkDescriptorPool descPool = VK_NULL_HANDLE;
   VkDescriptorSet sceneSet = VK_NULL_HANDLE, brightSet = VK_NULL_HANDLE, outSet = VK_NULL_HANDLE;
   VkDescriptorSet blurHSet[kBloomLevels]{}, blurVSet[kBloomLevels]{};
+  VkDescriptorSet ssaoSet = VK_NULL_HANDLE, aoBlurHSet = VK_NULL_HANDLE, aoBlurVSet = VK_NULL_HANDLE, dofPreSet = VK_NULL_HANDLE,
+                  dofGatherSet = VK_NULL_HANDLE;
   std::map<std::string, VkShaderModule> modules;
   std::map<uint32_t, VkPipeline> scenePipes;
   VkPipeline shadowPipes[3]{}, skyPipe = VK_NULL_HANDLE, brightPipe = VK_NULL_HANDLE, blurPipe = VK_NULL_HANDLE, outPipe = VK_NULL_HANDLE;
+  VkPipeline ssaoPipe = VK_NULL_HANDLE, aoBlurPipe = VK_NULL_HANDLE, dofPrePipe = VK_NULL_HANDLE, dofGatherPipe = VK_NULL_HANDLE;
 
   // Per-frame data.
   Buffer ubo, drawBuf, instBuf, icolBuf, readback, staging;
@@ -249,6 +273,7 @@ struct Renderer::Impl {
     want.shaderSampledImageArrayDynamicIndexing = have.shaderSampledImageArrayDynamicIndexing;
     want.samplerAnisotropy = anisotropy = have.samplerAnisotropy;
     want.largePoints = largePoints = have.largePoints;
+    want.independentBlend = independentBlend = have.independentBlend;
     float prio = 1;
     VkDeviceQueueCreateInfo qi{VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
     qi.queueFamilyIndex = qfam;
@@ -354,10 +379,16 @@ struct Renderer::Impl {
     si.addressModeU = si.addressModeV = si.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     si.maxLod = 0;
     VKC(vkCreateSampler(dev, &si, nullptr, &linearClamp));
+    VkSamplerCreateInfo ni = si;
+    ni.magFilter = ni.minFilter = VK_FILTER_NEAREST;
+    ni.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+    VKC(vkCreateSampler(dev, &ni, nullptr, &nearestClamp));
     si.maxLod = VK_LOD_CLAMP_NONE;
     si.anisotropyEnable = anisotropy;
     si.maxAnisotropy = anisotropy ? std::min(4.f, props.limits.maxSamplerAnisotropy) : 1.f;
     VKC(vkCreateSampler(dev, &si, nullptr, &texSampler));
+    si.addressModeU = si.addressModeV = si.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    VKC(vkCreateSampler(dev, &si, nullptr, &repeatSampler));
     VkSamplerCreateInfo ss{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
     ss.magFilter = ss.minFilter = VK_FILTER_LINEAR;
     ss.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
@@ -371,10 +402,21 @@ struct Renderer::Impl {
   void createTargets() {
     uint32_t W = opt.width, H = opt.height;
     VkImageUsageFlags att = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-    if (samples != VK_SAMPLE_COUNT_1_BIT)
+    if (samples != VK_SAMPLE_COUNT_1_BIT) {
       msaaColor = makeImage(W, H, kHdrFormat, att | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT, samples);
+      msaaAux = makeImage(W, H, kHdrFormat, att | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT, samples);
+    }
     depth = makeImage(W, H, kDepthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT, samples);
     hdr = makeImage(W, H, kHdrFormat, att | VK_IMAGE_USAGE_SAMPLED_BIT);
+    gbuf = makeImage(W, H, kHdrFormat, att | VK_IMAGE_USAGE_SAMPLED_BIT);
+    uint32_t hw = (W + 1) / 2, hh = (H + 1) / 2;
+    aoA = makeImage(hw, hh, kHdrFormat, att | VK_IMAGE_USAGE_SAMPLED_BIT);
+    aoB = makeImage(hw, hh, kHdrFormat, att | VK_IMAGE_USAGE_SAMPLED_BIT);
+    dofHalf = makeImage(hw, hh, kHdrFormat, att | VK_IMAGE_USAGE_SAMPLED_BIT);
+    dofBlur = makeImage(hw, hh, kHdrFormat, att | VK_IMAGE_USAGE_SAMPLED_BIT);
+    uint32_t paperMips = mipBlit ? (uint32_t)std::floor(std::log2((float)kPaperSize)) + 1 : 1;
+    paper = makeImage(kPaperSize, kPaperSize, VK_FORMAT_R8G8B8A8_UNORM,
+                      VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VK_SAMPLE_COUNT_1_BIT, paperMips);
     uint32_t S = opt.shadowMapSize;
     shadow = makeImage(S, S, kDepthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
     uint32_t bw = (W + 1) / 2, bh = (H + 1) / 2;
@@ -441,38 +483,43 @@ struct Renderer::Impl {
   }
 
   void createPasses() {
-    // Scene: colour (multisampled, resolved into hdr) and depth.
+    // Scene: colour and the normal-and-depth buffer (multisampled, resolved into hdr and gbuf), and depth.
+    // Attachments: 0 colour, 1 aux, 2 depth, then 3 and 4 the resolve targets when multisampling.
     std::vector<VkAttachmentDescription> atts;
+    const bool ms = samples != VK_SAMPLE_COUNT_1_BIT;
     VkAttachmentDescription c{};
     c.format = kHdrFormat;
     c.samples = samples;
     c.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    c.storeOp = samples == VK_SAMPLE_COUNT_1_BIT ? VK_ATTACHMENT_STORE_OP_STORE : VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    c.storeOp = ms ? VK_ATTACHMENT_STORE_OP_DONT_CARE : VK_ATTACHMENT_STORE_OP_STORE;
     c.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     c.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     c.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    c.finalLayout = samples == VK_SAMPLE_COUNT_1_BIT ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    c.finalLayout = ms ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    atts.push_back(c);
     atts.push_back(c);
     VkAttachmentDescription d = c;
     d.format = kDepthFormat;
     d.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     d.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
     atts.push_back(d);
-    VkAttachmentReference cref{0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}, dref{1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
-    VkAttachmentReference rref{2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+    VkAttachmentReference cref[2] = {{0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}, {1, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}};
+    VkAttachmentReference dref{2, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
+    VkAttachmentReference rref[2] = {{3, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}, {4, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL}};
     VkSubpassDescription sp{};
     sp.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    sp.colorAttachmentCount = 1;
-    sp.pColorAttachments = &cref;
+    sp.colorAttachmentCount = 2;
+    sp.pColorAttachments = cref;
     sp.pDepthStencilAttachment = &dref;
-    if (samples != VK_SAMPLE_COUNT_1_BIT) {
+    if (ms) {
       VkAttachmentDescription r = c;
       r.samples = VK_SAMPLE_COUNT_1_BIT;
       r.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
       r.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
       r.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
       atts.push_back(r);
-      sp.pResolveAttachments = &rref;
+      atts.push_back(r);
+      sp.pResolveAttachments = rref;
     }
     scenePass = makePass(atts, sp);
 
@@ -510,8 +557,8 @@ struct Renderer::Impl {
   }
 
   void createFramebuffers() {
-    if (samples == VK_SAMPLE_COUNT_1_BIT) sceneFb = framebuffer(scenePass, {hdr.view, depth.view}, hdr.w, hdr.h);
-    else sceneFb = framebuffer(scenePass, {msaaColor.view, depth.view, hdr.view}, hdr.w, hdr.h);
+    if (samples == VK_SAMPLE_COUNT_1_BIT) sceneFb = framebuffer(scenePass, {hdr.view, gbuf.view, depth.view}, hdr.w, hdr.h);
+    else sceneFb = framebuffer(scenePass, {msaaColor.view, msaaAux.view, depth.view, hdr.view, gbuf.view}, hdr.w, hdr.h);
     shadowFb = framebuffer(shadowPass, {shadow.view}, shadow.w, shadow.h);
     brightFb = framebuffer(postPass, {bright.view}, bright.w, bright.h);
     for (int i = 0; i < kBloomLevels; i++) {
@@ -519,24 +566,31 @@ struct Renderer::Impl {
       bloomVFb[i] = framebuffer(postPass, {bloomV[i].view}, bloomV[i].w, bloomV[i].h);
     }
     outFb = framebuffer(outPass, {out.view}, out.w, out.h);
+    aoAFb = framebuffer(postPass, {aoA.view}, aoA.w, aoA.h);
+    aoBFb = framebuffer(postPass, {aoB.view}, aoB.w, aoB.h);
+    dofHalfFb = framebuffer(postPass, {dofHalf.view}, dofHalf.w, dofHalf.h);
+    dofBlurFb = framebuffer(postPass, {dofBlur.view}, dofBlur.w, dofBlur.h);
   }
 
   void createDescriptors() {
-    VkDescriptorSetLayoutBinding b[6]{};
+    VkDescriptorSetLayoutBinding b[7]{};
     b[0] = {0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, nullptr};
     b[1] = {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, nullptr};
     b[2] = {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr};
     b[3] = {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, nullptr};
     b[4] = {4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr};
     b[5] = {5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, kMaxTextures, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr};
+    b[6] = {6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr};
     VkDescriptorSetLayoutCreateInfo li{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
-    li.bindingCount = 6;
+    li.bindingCount = 7;
     li.pBindings = b;
     VKC(vkCreateDescriptorSetLayout(dev, &li, nullptr, &sceneLayout));
-    VkDescriptorSetLayoutBinding pb[2]{};
+    // Post passes: a source image, the bloom levels, and a few more inputs (see kAuxInputs).
+    VkDescriptorSetLayoutBinding pb[3]{};
     pb[0] = {0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr};
     pb[1] = {1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, kBloomLevels, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr};
-    li.bindingCount = 2;
+    pb[2] = {2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, kAuxInputs, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr};
+    li.bindingCount = 3;
     li.pBindings = pb;
     VKC(vkCreateDescriptorSetLayout(dev, &li, nullptr, &postLayout));
 
@@ -547,16 +601,17 @@ struct Renderer::Impl {
     pli.pushConstantRangeCount = 1;
     pli.pPushConstantRanges = &pr;
     VKC(vkCreatePipelineLayout(dev, &pli, nullptr, &scenePL));
-    VkPushConstantRange ppr{VK_SHADER_STAGE_FRAGMENT_BIT, 0, 64};
+    VkPushConstantRange ppr{VK_SHADER_STAGE_FRAGMENT_BIT, 0, 128};
     pli.pSetLayouts = &postLayout;
     pli.pPushConstantRanges = &ppr;
     VKC(vkCreatePipelineLayout(dev, &pli, nullptr, &postPL));
 
+    const uint32_t postSets = 3 + 2 * kBloomLevels + 5;
     VkDescriptorPoolSize sizes[3] = {{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2},
                                      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 6},
-                                     {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, kMaxTextures + 1 + (2 * kBloomLevels + 2) * (1 + kBloomLevels)}};
+                                     {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, kMaxTextures + 2 + postSets * (1 + kBloomLevels + kAuxInputs)}};
     VkDescriptorPoolCreateInfo dpi{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
-    dpi.maxSets = 1 + 2 + 2 * kBloomLevels;
+    dpi.maxSets = 1 + postSets;
     dpi.poolSizeCount = 3;
     dpi.pPoolSizes = sizes;
     VKC(vkCreateDescriptorPool(dev, &dpi, nullptr, &descPool));
@@ -573,6 +628,7 @@ struct Renderer::Impl {
     brightSet = alloc(postLayout);
     outSet = alloc(postLayout);
     for (int i = 0; i < kBloomLevels; i++) { blurHSet[i] = alloc(postLayout); blurVSet[i] = alloc(postLayout); }
+    for (VkDescriptorSet* set : {&ssaoSet, &aoBlurHSet, &aoBlurVSet, &dofPreSet, &dofGatherSet}) *set = alloc(postLayout);
 
     // Per-frame buffers start small and grow on demand.
     ubo = makeBuffer(sizeof(FrameUBO), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, true);
@@ -583,27 +639,41 @@ struct Renderer::Impl {
 
     std::vector<VkDescriptorImageInfo> imgs(kMaxTextures, {texSampler, white.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL});
     VkDescriptorImageInfo sh{shadowSampler, shadow.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-    VkWriteDescriptorSet w[2]{};
+    VkDescriptorImageInfo pa{repeatSampler, paper.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    VkWriteDescriptorSet w[3]{};
     w[0] = {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, sceneSet, 4, 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &sh, nullptr, nullptr};
     w[1] = {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, sceneSet, 5, 0, kMaxTextures, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, imgs.data(), nullptr, nullptr};
-    vkUpdateDescriptorSets(dev, 2, w, 0, nullptr);
+    w[2] = {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, sceneSet, 6, 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &pa, nullptr, nullptr};
+    vkUpdateDescriptorSets(dev, 3, w, 0, nullptr);
 
-    auto postSet = [&](VkDescriptorSet set, VkImageView src, const Image* levels) {
-      VkDescriptorImageInfo s0{linearClamp, src, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    // A post set: the source (sampled with `srcSampler`), optional bloom levels, and optional extra
+    // inputs. The normal-and-depth buffer is always read without filtering.
+    struct In { const Image* img; VkSampler smp; };
+    auto postSet = [&](VkDescriptorSet set, VkImageView src, const Image* levels, std::vector<In> aux = {}, VkSampler srcSampler = VK_NULL_HANDLE) {
+      VkDescriptorImageInfo s0{srcSampler ? srcSampler : linearClamp, src, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
       std::vector<VkDescriptorImageInfo> s1(kBloomLevels, {linearClamp, white.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL});
       if (levels)
         for (int i = 0; i < kBloomLevels; i++) s1[i].imageView = levels[i].view;
-      VkWriteDescriptorSet pw[2]{};
+      std::vector<VkDescriptorImageInfo> s2(kAuxInputs, {linearClamp, white.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL});
+      for (size_t i = 0; i < aux.size(); i++)
+        if (aux[i].img) s2[i] = {aux[i].smp, aux[i].img->view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+      VkWriteDescriptorSet pw[3]{};
       pw[0] = {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, set, 0, 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &s0, nullptr, nullptr};
       pw[1] = {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, set, 1, 0, kBloomLevels, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, s1.data(), nullptr, nullptr};
-      vkUpdateDescriptorSets(dev, 2, pw, 0, nullptr);
+      pw[2] = {VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, nullptr, set, 2, 0, kAuxInputs, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, s2.data(), nullptr, nullptr};
+      vkUpdateDescriptorSets(dev, 3, pw, 0, nullptr);
     };
     postSet(brightSet, hdr.view, nullptr);
     for (int i = 0; i < kBloomLevels; i++) {
       postSet(blurHSet[i], i == 0 ? bright.view : bloomV[i - 1].view, nullptr);
       postSet(blurVSet[i], bloomH[i].view, nullptr);
     }
-    postSet(outSet, hdr.view, bloomV);
+    postSet(ssaoSet, gbuf.view, nullptr, {}, nearestClamp);
+    postSet(aoBlurHSet, aoA.view, nullptr, {}, nearestClamp);
+    postSet(aoBlurVSet, aoB.view, nullptr, {}, nearestClamp);
+    postSet(dofPreSet, hdr.view, nullptr, {{&aoA, linearClamp}, {&gbuf, nearestClamp}});
+    postSet(dofGatherSet, dofHalf.view, nullptr, {}, linearClamp);
+    postSet(outSet, hdr.view, bloomV, {{&aoA, linearClamp}, {&gbuf, nearestClamp}, {&dofBlur, linearClamp}});
   }
 
   void writeBufferDescriptors() {
@@ -645,6 +715,8 @@ struct Renderer::Impl {
     bool blend = false, depthTest = false, depthWrite = false, vertexInput = true, positionOnly = false;
     VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
     bool hasColor = true;
+    // The scene pass has a second colour target (normal and depth) that blended draws leave alone.
+    bool sceneTargets = false;
   };
 
   VkPipeline makePipeline(const PipeDesc& d) {
@@ -687,9 +759,14 @@ struct Renderer::Impl {
       ba.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
       ba.alphaBlendOp = VK_BLEND_OP_ADD;
     }
+    VkPipelineColorBlendAttachmentState bas[2] = {ba, {}};
+    bas[1].colorWriteMask = d.blend ? 0 : 0xf;
+    // Without independent blending both targets must match: blended draws then also blend into the
+    // normal-and-depth buffer, which only softens occlusion and focus around see-through things.
+    if (!independentBlend) bas[1] = ba;
     VkPipelineColorBlendStateCreateInfo cb{VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
-    cb.attachmentCount = d.hasColor ? 1 : 0;
-    cb.pAttachments = &ba;
+    cb.attachmentCount = d.hasColor ? (d.sceneTargets ? 2 : 1) : 0;
+    cb.pAttachments = bas;
     VkDynamicState dyn[2] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
     VkPipelineDynamicStateCreateInfo dy{VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
     dy.dynamicStateCount = 2;
@@ -721,6 +798,7 @@ struct Renderer::Impl {
     d.vs = module("sky.vert", kSkyVert, sizeof kSkyVert);
     d.fs = module("sky.frag", kSkyFrag, sizeof kSkyFrag);
     d.vertexInput = false;
+    d.sceneTargets = true;
     skyPipe = makePipeline(d);
 
     PipeDesc s;
@@ -745,6 +823,14 @@ struct Renderer::Impl {
     brightPipe = makePipeline(p);
     p.fs = module("blur.frag", kBlurFrag, sizeof kBlurFrag);
     blurPipe = makePipeline(p);
+    p.fs = module("ssao.frag", kSsaoFrag, sizeof kSsaoFrag);
+    ssaoPipe = makePipeline(p);
+    p.fs = module("aoblur.frag", kAoBlurFrag, sizeof kAoBlurFrag);
+    aoBlurPipe = makePipeline(p);
+    p.fs = module("dofpre.frag", kDofPreFrag, sizeof kDofPreFrag);
+    dofPrePipe = makePipeline(p);
+    p.fs = module("dofgather.frag", kDofGatherFrag, sizeof kDofGatherFrag);
+    dofGatherPipe = makePipeline(p);
     p.pass = outPass;
     p.fs = module("final.frag", kFinalFrag, sizeof kFinalFrag);
     outPipe = makePipeline(p);
@@ -771,6 +857,7 @@ struct Renderer::Impl {
     d.blend = blend;
     d.depthTest = depthTest;
     d.depthWrite = depthWrite;
+    d.sceneTargets = true;
     VkPipeline p = makePipeline(d);
     scenePipes[key] = p;
     return p;
@@ -809,7 +896,8 @@ struct Renderer::Impl {
     staging = makeBuffer(1 << 20, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, true);
     beginCmd();
     // Everything that is ever sampled starts in the read layout, so descriptors are always valid.
-    for (Image* im : {&hdr, &bright}) barrier(im->img, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    for (Image* im : {&hdr, &gbuf, &bright, &aoA, &aoB, &dofHalf, &dofBlur})
+      barrier(im->img, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     for (int i = 0; i < kBloomLevels; i++) {
       barrier(bloomH[i].img, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
       barrier(bloomV[i].img, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -823,6 +911,38 @@ struct Renderer::Impl {
     vkCmdCopyBufferToImage(cmd, staging.buf, white.img, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &r);
     barrier(white.img, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     submitAndWait();
+
+    // The paper sheet, with its mipmaps.
+    std::vector<uint8_t> px = paperTexture(kPaperSize);
+    destroy(staging);
+    staging = makeBuffer(std::max<VkDeviceSize>(px.size(), 1 << 20), VK_BUFFER_USAGE_TRANSFER_SRC_BIT, true);
+    std::memcpy(staging.map, px.data(), px.size());
+    beginCmd();
+    barrier(paper.img, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, paper.mips);
+    VkBufferImageCopy pr{};
+    pr.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+    pr.imageExtent = {paper.w, paper.h, 1};
+    vkCmdCopyBufferToImage(cmd, staging.buf, paper.img, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &pr);
+    generateMips(paper);
+    submitAndWait();
+  }
+
+  // Fill mip levels 1.. of an image whose level 0 is in TRANSFER_DST, leaving every level readable.
+  void generateMips(Image& im) {
+    int32_t mw = im.w, mh = im.h;
+    for (uint32_t m = 1; m < im.mips; m++) {
+      barrier(im.img, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, m - 1, 1);
+      VkImageBlit bl{};
+      bl.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, m - 1, 0, 1};
+      bl.srcOffsets[1] = {mw, mh, 1};
+      mw = std::max(1, mw / 2);
+      mh = std::max(1, mh / 2);
+      bl.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, m, 0, 1};
+      bl.dstOffsets[1] = {mw, mh, 1};
+      vkCmdBlitImage(cmd, im.img, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, im.img, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &bl, VK_FILTER_LINEAR);
+      barrier(im.img, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, m - 1, 1);
+    }
+    barrier(im.img, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, im.mips - 1, 1);
   }
 
   // ---------- uploads ----------
@@ -928,20 +1048,7 @@ struct Renderer::Impl {
       r.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
       r.imageExtent = {im.w, im.h, 1};
       vkCmdCopyBufferToImage(cmd, staging.buf, im.img, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &r);
-      int32_t mw = im.w, mh = im.h;
-      for (uint32_t m = 1; m < im.mips; m++) {
-        barrier(im.img, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, m - 1, 1);
-        VkImageBlit bl{};
-        bl.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, m - 1, 0, 1};
-        bl.srcOffsets[1] = {mw, mh, 1};
-        mw = std::max(1, mw / 2);
-        mh = std::max(1, mh / 2);
-        bl.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, m, 0, 1};
-        bl.dstOffsets[1] = {mw, mh, 1};
-        vkCmdBlitImage(cmd, im.img, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, im.img, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &bl, VK_FILTER_LINEAR);
-        barrier(im.img, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, m - 1, 1);
-      }
-      barrier(im.img, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, im.mips - 1, 1);
+      generateMips(im);
     }
     VkMemoryBarrier mb{VK_STRUCTURE_TYPE_MEMORY_BARRIER};
     mb.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
@@ -1040,7 +1147,7 @@ struct Renderer::Impl {
       d.color = {mat->color.r, mat->color.g, mat->color.b, mat->opacity};
       Color e = mat->emissive * mat->emissiveIntensity;
       d.emissive = {e.r, e.g, e.b, 0};
-      d.params = {mat->roughness, mat->metalness, mat->pointSize, 0};
+      d.params = {mat->roughness, mat->metalness, mat->pointSize, mat->shading == Shading::Standard ? mat->paper : 0.f};
       uint32_t flags = 0;
       bool lit = mat->shading == Shading::Standard && n->kind != NodeKind::Lines && n->kind != NodeKind::Points && n->kind != NodeKind::Sprite;
       if (lit) flags |= F_LIT;
@@ -1107,6 +1214,8 @@ struct Renderer::Impl {
     u.viewport = {(float)opt.width, (float)opt.height, opt.height / 720.f, (float)plights.size()};
     u.skyTop = {scene.sky.top.r, scene.sky.top.g, scene.sky.top.b, scene.sky.radius};
     u.skyHorizon = {scene.sky.horizon.r, scene.sky.horizon.g, scene.sky.horizon.b, 0};
+    u.paper = {std::max(scene.paper.tile, 1e-3f), scene.paper.relief, scene.paper.mottle, scene.paper.wrap};
+    u.paperSky = {scene.paper.sky, 0, 0, 0};
     for (size_t i = 0; i < plights.size(); i++) {
       PointLight* pl = plights[i];
       u.pointPos[i] = vec4(pl->world.position(), 1);
@@ -1201,14 +1310,15 @@ struct Renderer::Impl {
 
     // Scene pass.
     {
-      VkClearValue cv[3]{};
+      VkClearValue cv[5]{};
       cv[0].color = {{0, 0, 0, 1}};
-      cv[1].depthStencil = {1, 0};
+      cv[1].color = {{0, 0, 1, 60000}};
+      cv[2].depthStencil = {1, 0};
       VkRenderPassBeginInfo rb{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
       rb.renderPass = scenePass;
       rb.framebuffer = sceneFb;
       rb.renderArea = {{0, 0}, {hdr.w, hdr.h}};
-      rb.clearValueCount = samples == VK_SAMPLE_COUNT_1_BIT ? 2 : 3;
+      rb.clearValueCount = samples == VK_SAMPLE_COUNT_1_BIT ? 3 : 5;
       rb.pClearValues = cv;
       vkCmdBeginRenderPass(cmd, &rb, VK_SUBPASS_CONTENTS_INLINE);
       setViewport(hdr.w, hdr.h, true);
@@ -1275,17 +1385,43 @@ struct Renderer::Impl {
       }
     }
 
+    // Ambient occlusion at half resolution, then a blur that respects depth edges (the result ends up in aoA).
+    const float hScale = opt.height / 1080.f;
+    const bool aoOn = post.aoStrength > 0;
+    if (aoOn) {
+      struct { float p00, p11, texX, texY, radius, bias, power, frame; } a{cam.proj.m[0], cam.proj.m[5], 1.f / gbuf.w, 1.f / gbuf.h,
+                                                                          post.aoRadius, 0.02f, post.aoPower, 0};
+      postPassRun(aoAFb, aoA, ssaoPipe, ssaoSet, &a, sizeof a, postPass);
+      struct { float sx, sy, pad0, pad1; } bh{1.f / aoA.w, 0, 0, 0}, bv{0, 1.f / aoB.h, 0, 0};
+      postPassRun(aoBFb, aoB, aoBlurPipe, aoBlurHSet, &bh, sizeof bh, postPass);
+      postPassRun(aoAFb, aoA, aoBlurPipe, aoBlurVSet, &bv, sizeof bv, postPass);
+    }
+    // Depth of field: radii in half-resolution pixels.
+    const bool dofOn = post.dofAperture > 0;
+    const float dofAperture = post.dofAperture * hScale * 0.5f, dofMax = std::max(1.f, post.dofMaxRadius * hScale * 0.5f);
+    if (dofOn) {
+      struct { float focus, aperture, maxR, ao; float texX, texY, pad0, pad1; } pre{post.dofFocus, dofAperture, dofMax, aoOn ? post.aoStrength : 0.f,
+                                                                                 1.f / hdr.w, 1.f / hdr.h, 0, 0};
+      postPassRun(dofHalfFb, dofHalf, dofPrePipe, dofPreSet, &pre, sizeof pre, postPass);
+      struct { float texX, texY, maxR, pad; } ga{1.f / dofHalf.w, 1.f / dofHalf.h, dofMax, 0};
+      postPassRun(dofBlurFb, dofBlur, dofGatherPipe, dofGatherSet, &ga, sizeof ga, postPass);
+    }
+
     // Tone map and grade into the output image, then copy it out.
     {
       const float factors[kBloomLevels] = {1.0f, 0.8f, 0.6f, 0.4f, 0.2f};
       float f[kBloomLevels];
       // Each level's weight leans toward the coarse levels as the radius grows; the overall gain is 3 × strength.
       for (int i = 0; i < kBloomLevels; i++) f[i] = bloomOn ? 3 * post.bloomStrength * lerp(factors[i], 1.2f - factors[i], post.bloomRadius) : 0.f;
-      float pcData[16] = {f[0], f[1], f[2], f[3],
+      float pcData[32] = {f[0], f[1], f[2], f[3],
                           f[4], scene.exposure, (float)opt.width / opt.height, post.dither,
                           post.saturation, post.vignette, post.fade, post.flash,
-                          post.focusCenter.x, post.focusCenter.y, post.focusRadius, post.focusAmount};
-      postPassRun(outFb, out, outPipe, outSet, pcData, 64, outPass);
+                          post.focusCenter.x, post.focusCenter.y, post.focusRadius, post.focusAmount,
+                          aoOn ? post.aoStrength : 0.f, 0, 0, 0,
+                          post.dofFocus, dofAperture, dofMax, dofOn ? 1.f : 0.f,
+                          post.lift.x, post.lift.y, post.lift.z, post.contrast,
+                          post.gain.x, post.gain.y, post.gain.z, 0};
+      postPassRun(outFb, out, outPipe, outSet, pcData, sizeof pcData, outPass);
       VkBufferImageCopy r{};
       r.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
       r.imageExtent = {out.w, out.h, 1};
@@ -1304,18 +1440,18 @@ struct Renderer::Impl {
     vkDeviceWaitIdle(dev);
     for (auto& [k, p] : scenePipes) vkDestroyPipeline(dev, p, nullptr);
     for (VkPipeline p : shadowPipes) if (p) vkDestroyPipeline(dev, p, nullptr);
-    for (VkPipeline p : {skyPipe, brightPipe, blurPipe, outPipe}) if (p) vkDestroyPipeline(dev, p, nullptr);
+    for (VkPipeline p : {skyPipe, brightPipe, blurPipe, outPipe, ssaoPipe, aoBlurPipe, dofPrePipe, dofGatherPipe}) if (p) vkDestroyPipeline(dev, p, nullptr);
     for (auto& [k, m] : modules) vkDestroyShaderModule(dev, m, nullptr);
     vkDestroyPipelineLayout(dev, scenePL, nullptr);
     vkDestroyPipelineLayout(dev, postPL, nullptr);
     vkDestroyDescriptorPool(dev, descPool, nullptr);
     vkDestroyDescriptorSetLayout(dev, sceneLayout, nullptr);
     vkDestroyDescriptorSetLayout(dev, postLayout, nullptr);
-    for (VkFramebuffer f : {sceneFb, shadowFb, brightFb, outFb}) if (f) vkDestroyFramebuffer(dev, f, nullptr);
+    for (VkFramebuffer f : {sceneFb, shadowFb, brightFb, outFb, aoAFb, aoBFb, dofHalfFb, dofBlurFb}) if (f) vkDestroyFramebuffer(dev, f, nullptr);
     for (int i = 0; i < kBloomLevels; i++) { vkDestroyFramebuffer(dev, bloomHFb[i], nullptr); vkDestroyFramebuffer(dev, bloomVFb[i], nullptr); }
     for (VkRenderPass p : {scenePass, shadowPass, postPass, outPass}) if (p) vkDestroyRenderPass(dev, p, nullptr);
-    for (VkSampler s : {linearClamp, shadowSampler, texSampler}) if (s) vkDestroySampler(dev, s, nullptr);
-    for (Image* im : {&msaaColor, &depth, &hdr, &shadow, &bright, &out, &white}) destroy(*im);
+    for (VkSampler s : {linearClamp, nearestClamp, shadowSampler, texSampler, repeatSampler}) if (s) vkDestroySampler(dev, s, nullptr);
+    for (Image* im : {&msaaColor, &msaaAux, &depth, &hdr, &gbuf, &shadow, &bright, &out, &white, &paper, &aoA, &aoB, &dofHalf, &dofBlur}) destroy(*im);
     for (int i = 0; i < kBloomLevels; i++) { destroy(bloomH[i]); destroy(bloomV[i]); }
     for (auto& t : texs) destroy(t.img);
     for (auto& c : chunks) destroy(c.buf);

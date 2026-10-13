@@ -12,10 +12,10 @@ Update buildC3(Ctx& ctx) {
   W.addLight({{T("3d", 3.2f), "golden", 2.5f}, {T("3f", 1.8f), "dusk", 2.6f}});
   W.addCrowd({{T("3a"), 1.0f, 2}, {T("3f", 1), 0.45f, 2}});
   W.addShop({
-      {.t = T("3b", 2.5f), .door = "OUT\nASKING", .lit = 0},
+      {.t = T("3b", 2.5f), .door = script::tr("OUT\nASKING", "外出\n调查中"), .lit = 0},
       {.t = T("3d", 2.0f), .lit = 0.6f},
-      {.t = T("3d", 3.2f), .door = "CLOSED", .lit = 0},
-      {.t = T("3i"), .door = "OPEN\n9–5"},
+      {.t = T("3d", 3.2f), .door = script::tr("CLOSED", "已打烊"), .lit = 0},
+      {.t = T("3i"), .door = script::tr("OPEN\n9–5", "营业\n9–5")},
   });
 
   W.addCam({
@@ -68,7 +68,9 @@ Update buildC3(Ctx& ctx) {
 
   // ---- threads: each finding tied back to the shop ----
   auto shopPt = [](float dx) { return vec3{16.6f + dx, 3.8f, -22.8f}; };
-  auto teal = [](float o) { return basic({.color = 0x4fd1c5, .opacity = o, .transparent = true, .depthWrite = false}); };
+  // Teal yarn: lit like paper, with a little glow of its own so it reads at dusk.
+  auto teal = [](float o) { return standard({.color = 0x37b3a5, .roughness = 0.9f, .emissive = 0x37b3a5, .emissiveIntensity = 0.45f,
+                                             .opacity = o, .transparent = true, .depthWrite = false, .paper = 0.6f}); };
   struct ThreadDef { const char* key; vec3 from, to; float lift, r; const char* cue; float at; };
   const std::vector<ThreadDef> defs = {
       {"place", {6.8f, 2.9f, 3.9f}, shopPt(-0.9f), 7, 0.12f, "3c", 3.2f},
@@ -81,7 +83,7 @@ Update buildC3(Ctx& ctx) {
   for (const ThreadDef& d : defs) {
     Material* m = teal(0.85f);
     GrowTube tube = growTube(arc(d.from, d.to, d.lift), d.r, m, 90, 8);
-    Mesh* knot = eng::mesh(sphereGeo(d.r * 1.0f + 0.08f, 16, 12), teal(0.95f));
+    Mesh* knot = eng::mesh(facetedBall(d.r * 1.0f + 0.1f, 1), teal(0.95f));
     knot->position = d.from;
     W.scene.add(tube.mesh, knot);
     threads.push_back({d, tube, knot, m});
@@ -91,7 +93,7 @@ Update buildC3(Ctx& ctx) {
   Node* oldBox = group();
   Geometry* ob = geo::box(3.9f, 2.7f, 0.7f);
   oldBox->add(eng::mesh(ob, teal(0.16f)));
-  Mesh* oldEdges = lines(geo::edges(*ob), basic({.color = 0x4fd1c5, .opacity = 1, .transparent = true}));
+  Mesh* oldEdges = lines(geo::edges(*ob), basic({.color = 0x1f8a80, .opacity = 1, .transparent = true}));
   oldBox->add(oldEdges);
   oldBox->position = {6.8f, 1.4f, 3.9f};
   W.scene.add(oldBox);
@@ -147,10 +149,11 @@ Update buildC3(Ctx& ctx) {
   std::vector<Doc> docs;
   for (int i = 0; i < 10; i++) {
     Node* g = group();
-    Mesh* page = eng::mesh(geo::plane(0.62f, 0.8f), basic({.color = 0xe9fffb, .transparent = true, .side = Side::Double}));
+    Mesh* page = eng::mesh(geo::plane(0.62f, 0.8f), standard({.color = 0xfbf7ee, .roughness = 0.9f, .emissive = 0xfbf7ee, .emissiveIntensity = 0.3f,
+                                                               .side = Side::Double, .paper = 1}));
     g->add(page);
     for (int k = 0; k < 4; k++) {
-      Mesh* line = eng::mesh(geo::plane(0.42f, 0.05f), basic({.color = 0x4fd1c5, .transparent = true, .side = Side::Double}));
+      Mesh* line = eng::mesh(geo::plane(0.42f, 0.05f), basic({.color = 0x1f8a80, .side = Side::Double}));
       line->position = {0, 0.22f - k * 0.14f, 0.005f};
       g->add(line);
     }

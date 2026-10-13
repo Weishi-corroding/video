@@ -1,5 +1,6 @@
-// Output: an H.264 MP4 through an ffmpeg pipe, PNG stills, and simple mono audio for narration.
+// Output: an H.264 MP4 through an ffmpeg pipe, PNG stills, and simple audio buffers (narration, music).
 #pragma once
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <string>
@@ -32,16 +33,24 @@ class VideoWriter {
 
 bool savePng(const std::string& path, const uint8_t* rgba, int width, int height);
 
-// Mono audio as floats.
+// Audio as floats, channels interleaved (1 = mono, 2 = stereo).
 struct Audio {
-  int rate = 22050;
+  int rate = 48000;
+  int channels = 1;
   std::vector<float> samples;
-  double duration() const { return (double)samples.size() / rate; }
-  // 16-bit PCM WAV, mono or stereo (mixed down).
+  Audio() = default;
+  Audio(int rate_, int channels_, double seconds = 0) : rate(rate_), channels(channels_) { resize(seconds); }
+  size_t frames() const { return samples.size() / channels; }
+  double duration() const { return (double)frames() / rate; }
+  // 16-bit PCM WAV, keeping its channels.
   static Audio loadWav(const std::string& path);
-  // Add `src` starting at `at` seconds. Rates must match.
-  void mix(const Audio& src, double at, float gain = 1);
-  void resize(double seconds) { samples.resize((size_t)(seconds * rate), 0.f); }
+  // A copy at another sample rate (windowed-sinc interpolation).
+  Audio resampled(int newRate) const;
+  // Add `src` starting at `at` seconds, scaled by `gain`. Rates must match. A mono source mixed into
+  // stereo is panned with equal power (pan -1 = left, 1 = right); a stereo source keeps its channels.
+  void mix(const Audio& src, double at, float gain = 1, float pan = 0);
+  void resize(double seconds) { samples.resize((size_t)std::llround(seconds * rate) * channels, 0.f); }
+  float peak() const;
   bool saveWav(const std::string& path) const;
 };
 

@@ -18,12 +18,15 @@ namespace ROLE {
 constexpr uint32_t fact = 0x4fd1c5, flaw = 0xff7a6b, principle = 0xffcf5a, shopSide = 0x7aa2ff, needSide = 0xd08cff;
 }
 
+// Everything is made of paper: matte, slightly warm colours, as coloured card and cartridge paper.
 namespace PAL {
-constexpr uint32_t lawn = 0x8fae7e, lawnDark = 0x7b9a6c, path = 0xe6dac4, plinth = 0x2a3140, stone = 0xdccfb6, cream = 0xf0e6d2,
-                   brick = 0xc98e6c, roof = 0xa65f48, roofGrey = 0x6f7a86, wood = 0xb98a5e, woodDark = 0x7d5a3c, glass = 0xbfd8e6,
-                   apron = 0x2f6b55;
-inline const std::vector<uint32_t> skin = {0xf1d0b5, 0xd9a882, 0xb98563, 0x8d5f43, 0xf5dcc8};
-inline const std::vector<uint32_t> shirts = {0x5b7fa6, 0xc9785d, 0x6f9a7a, 0xd9b45a, 0x8a6fae, 0x4f6f78, 0xb85c6a, 0xe0ddd2, 0x5e6b8c, 0x9a8b6a};
+constexpr uint32_t lawn = 0x9dbf7c, lawnDark = 0x7fa466, path = 0xf0e4c8, stone = 0xe8dcc2, cream = 0xf5ecda, brick = 0xd48c68,
+                   roof = 0xc56a4f, roofGrey = 0x8494a3, wood = 0xc49a6c, woodDark = 0x8a6646, glass = 0xcfe2ea, apron = 0x2f7560,
+                   kraft = 0xc9a77c, ink = 0x2f2a26, pageEdge = 0xf3ead6, cover = 0x2c5d63, coverDark = 0x214a4f, gilt = 0xd9b45a;
+inline const std::vector<uint32_t> skin = {0xf3d3b8, 0xe0b08a, 0xc48e6a, 0x9a6a4c, 0xf7e0cc};
+inline const std::vector<uint32_t> shirts = {0x6a8fb8, 0xd98a6a, 0x7fae8a, 0xe6c06a, 0x9a80c0, 0x5f8a94, 0xc96f7c, 0xece6d6, 0x6e7ca6, 0xb09c76};
+inline const std::vector<uint32_t> trousers = {0x3e4658, 0x524638, 0x34405a, 0x5f5648, 0x46505e};
+inline const std::vector<uint32_t> hair = {0x2a2220, 0x4a3426, 0x1d1d22, 0x6b4a2e, 0x3a2a22};
 }  // namespace PAL
 
 // ---------- easing ----------
@@ -67,6 +70,7 @@ struct MatOpts {
   float opacity = 1;
   bool depthWrite = true;
   Side side = Side::Front;
+  float paper = 1;  // the paper look (0 for glass, metal, lights)
 };
 /** A material of its own, safe to fade or tint. */
 Material* mat(uint32_t color, const MatOpts& o = {});
@@ -93,6 +97,20 @@ void scaleIn(Node* obj, float s);
 // Cached geometry, so identical shapes share one copy on the GPU.
 Geometry* cylinderGeo(float rTop, float rBottom, float h, int radial, int hs = 1, bool open = false);
 Geometry* sphereGeo(float r, int ws, int hs, float phiStart = 0, float phiLen = 2 * PI, float thetaStart = 0, float thetaLen = PI);
+// The same shapes with crisp facets, like folded paper.
+Geometry* facetedCylinder(float rTop, float rBottom, float h, int radial);
+Geometry* facetedCone(float r, float h, int radial);
+Geometry* facetedBall(float r, int detail = 1);
+
+// ---------- cut card ----------
+/** A shape cut from card: faces in one colour, the cut edge a paler one. */
+Node* card(const std::vector<vec2>& outline, float depth, Material* face, Material* edge = nullptr);
+/** A cloud silhouette (for card(), in a w × h box centred on the origin). */
+std::vector<vec2> cloudOutline(float w, float h, uint32_t seed);
+/** A regular polygon, or a star with `inner` > 0. */
+std::vector<vec2> polygonOutline(int sides, float r, float inner = 0, float rot = 0);
+/** Stripes for awnings and page edges: `count` bands alternating between two colours. */
+Texture* stripeTexture(uint32_t a, uint32_t b, int count, bool vertical, float lineFrac = 0.5f);
 
 // ---------- canvas text (for diegetic signs) ----------
 struct CanvasTex {
@@ -131,22 +149,33 @@ struct Sign {
 Sign* sign(const SignOpts& o);
 
 // ---------- people ----------
+// Paper dolls: trousers and a rolled-paper torso, folded at the facets, card arms, a round head with
+// two dots for eyes, and a cap of hair.
 namespace FIG {
+Geometry* legsGeo();
 Geometry* bodyGeo();
 Geometry* headGeo();
-constexpr float bodyY = 0.42f, headY = 1.0f;
+Geometry* hairGeo();
+Geometry* eyesGeo();
+Geometry* armGeo();   // hangs down from the shoulder (pivot at its top)
+constexpr float legsY = 0.13f, bodyY = 0.5f, headY = 0.98f, shoulderY = 0.74f, shoulderX = 0.215f;
 }  // namespace FIG
 
 struct FigOpts {
   uint32_t shirt = 0x5b7fa6, skin = 0xf1d0b5;
   bool apron = false, notebook = false;
   std::optional<uint32_t> hair;
+  std::optional<uint32_t> trousers;
 };
-/** A small figure: capsule body, round head. Optional apron and notebook mark Jia. */
+/** A small figure. Optional apron and notebook mark Jia. */
 struct Figure {
   Node* root = nullptr;
+  Node* bodyPivot = nullptr;  // everything above the legs; bobs when walking
   Mesh* body = nullptr;
+  Mesh* legs = nullptr;
   Node* headPivot = nullptr;
+  Node* armL = nullptr;
+  Node* armR = nullptr;
   Mesh* book = nullptr;
   bool isSeated = false;
   Node* operator->() const { return root; }
@@ -179,6 +208,7 @@ struct LampPost {
   Mesh* bulb;
 };
 LampPost lampPost(float h = 2.6f);
+/** A papercraft tree: stacked folded cones, a faceted crown, or two crossed cut-outs. */
 Node* tree(Rng& r, float s = 1);
 Mesh* hedge(float len, float h = 0.8f, float d = 0.6f);
 

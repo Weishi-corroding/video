@@ -1,4 +1,4 @@
 build/
 out/
-narration/*.wav
-narration/manifest.json
+narration/*/*.wav
+narration/*/manifest.json

@@ -30,6 +30,8 @@ layout(set = 0, binding = 0, std140) uniform FrameU {
   vec4 viewport;     // width, height, point scale, point light count
   vec4 skyTop;       // w = sky radius
   vec4 skyHorizon;
+  vec4 paper;       // tile size, relief, mottle, wrap
+  vec4 paperSky;     // x = fibre texture on the sky
   vec4 pointPos[4];
   vec4 pointColor[4];
   vec4 pointParams[4]; // distance, decay
@@ -40,7 +42,7 @@ struct Draw {
   vec4 n0, n1, n2;   // normal matrix columns
   vec4 color;        // rgb, a = opacity
   vec4 emissive;     // rgb * intensity
-  vec4 params;       // roughness, metalness, point size
+  vec4 params;       // roughness, metalness, point size, paper
   uvec4 info;        // flags, texture slot, first instance
 };
 

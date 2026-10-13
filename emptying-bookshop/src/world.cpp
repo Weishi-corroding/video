@@ -1,5 +1,7 @@
 #include "world.h"
 
+#include "script.h"
+
 #include <algorithm>
 #include <cmath>
 #include <map>
@@ -18,13 +20,14 @@ struct Preset {
   float night, stars, exp;
 };
 const std::map<std::string, Preset> PRESETS = {
-    {"day", {0xfff0dc, 2.7f, 40, 215, 0xd6e4ff, 0x6e5c48, 1.15f, 0x1d2a40, 0x51647a, 0, 0, 1.0f}},
-    {"overcast", {0xe4e9f0, 1.25f, 55, 200, 0xdfe6ef, 0x5d5a55, 1.45f, 0x262d38, 0x5a6270, 0, 0, 0.98f}},
-    {"golden", {0xffc48a, 2.6f, 20, 240, 0xf3d6c0, 0x5e4a3c, 0.95f, 0x22253f, 0x8a5e5a, 0.15f, 0, 1.0f}},
-    {"dusk", {0xff9f70, 1.4f, 12, 250, 0x8a8fc0, 0x3a3038, 0.85f, 0x161b33, 0x5e4058, 0.55f, 0.2f, 1.02f}},
-    {"evening", {0xa9bcff, 0.75f, 38, 150, 0x5d6fa0, 0x24222c, 0.75f, 0x0b1022, 0x2b3050, 1, 0.6f, 1.05f}},
-    {"night", {0x9fb2ff, 0.55f, 50, 160, 0x4a5a8a, 0x1c1b24, 0.7f, 0x070a18, 0x1d2140, 1, 1, 1.05f}},
-    {"analysis", {0xffe2c4, 1.7f, 30, 225, 0xb9c6e6, 0x3e3a40, 1.0f, 0x141b2c, 0x3a4458, 0.35f, 0.1f, 1.0f}},
+    // Sky colours are a painted paper backdrop: never black, a little warm even at night.
+    {"day", {0xfff1dc, 2.5f, 42, 215, 0xe2ecf8, 0x8a7a62, 1.25f, 0x7fabd4, 0xdfe9e8, 0, 0, 1.0f}},
+    {"overcast", {0xeef0f2, 1.2f, 55, 200, 0xe6ebf0, 0x77736c, 1.5f, 0x9aa6b4, 0xe4e0d6, 0, 0, 0.98f}},
+    {"golden", {0xffc890, 2.5f, 20, 240, 0xf6dcc6, 0x6e5a48, 1.0f, 0x8a8fb8, 0xf4c99c, 0.15f, 0, 1.0f}},
+    {"dusk", {0xff9f70, 1.35f, 12, 250, 0x9a98c8, 0x4a3a40, 0.9f, 0x3e4878, 0xe0a08a, 0.55f, 0.2f, 1.02f}},
+    {"evening", {0xaebfff, 0.72f, 38, 150, 0x6a7aac, 0x2e2a36, 0.8f, 0x1f2852, 0x5e608e, 1, 0.6f, 1.05f}},
+    {"night", {0xa6b6ff, 0.52f, 50, 160, 0x55639a, 0x24222e, 0.75f, 0x141c40, 0x363c6a, 1, 1, 1.05f}},
+    {"analysis", {0xffe6cc, 1.7f, 30, 225, 0xc8d0ea, 0x4a4448, 1.05f, 0x2e3a5a, 0x8c8ca8, 0.35f, 0.1f, 1.0f}},
 };
 
 // A preset with its colours in linear light, so blends happen there.
@@ -77,6 +80,8 @@ void updateLight(World& W, float t) {
   W.night = L.night;
   for (Material* m : W.nightMats) m->emissiveIntensity = m->user[1] * L.night;
   for (Material* m : W.lamps) m->emissiveIntensity = 2.4f * clamp((L.night - 0.25f) / 0.5f);
+  // Clouds glow a little by day so they stay pale, and fade into the night sky after dark.
+  for (Material* m : W.cloudMats) m->emissiveIntensity = lerp(0.32f, 0.02f, L.night);
 }
 
 // ---------------- camera ----------------
@@ -162,6 +167,28 @@ Node* windowGrid(World& W, double w, double h, int rows, int cols, double y0, ch
     inst->receiveShadow = true;
     grp->add(inst);
   }
+  // Paper frames: a surround, a cross of glazing bars, and a sill.
+  static std::map<std::pair<float, float>, Geometry*> frames;
+  Geometry*& fg = frames[{ww, wh}];
+  if (!fg) {
+    Geometry* bar = geo::box(1, 1, 1);
+    float b = 0.075f, ow = ww + 2 * b, oh = wh + 2 * b, z = 0.01f;
+    fg = geo::merge({{bar, mat4::compose({0, wh / 2 + b / 2, z}, {}, {ow, b, 0.05f})},
+                     {bar, mat4::compose({0, -wh / 2 - b / 2, z}, {}, {ow, b, 0.05f})},
+                     {bar, mat4::compose({-ww / 2 - b / 2, 0, z}, {}, {b, oh, 0.05f})},
+                     {bar, mat4::compose({ww / 2 + b / 2, 0, z}, {}, {b, oh, 0.05f})},
+                     {bar, mat4::compose({0, 0, z}, {}, {0.035f, wh, 0.03f})},
+                     {bar, mat4::compose({0, wh * 0.12f, z}, {}, {ww, 0.035f, 0.03f})},
+                     {bar, mat4::compose({0, -wh / 2 - b - 0.03f, 0.05f}, {}, {ow + 0.16f, 0.06f, 0.14f})}});
+  }
+  std::vector<mat4> all = lists[0];
+  all.insert(all.end(), lists[1].begin(), lists[1].end());
+  if (!all.empty()) {
+    InstancedMesh* fr = instanced(fg, matS(0xf7f0e2, 0.85f), (int)all.size());
+    fr->matrices = all;
+    fr->receiveShadow = true;
+    grp->add(fr);
+  }
   return grp;
 }
 
@@ -171,19 +198,62 @@ struct BuildingOpts {
   uint32_t roof = PAL::roofGrey;
   std::vector<std::pair<char, int>> faces;
   int floors = 2;
+  bool gable = false;                          // a pitched roof (otherwise flat, with a parapet)
+  std::vector<std::pair<char, float>> doors;   // face and offset along it
 };
+
+// Where a point on a face sits, and which way the face looks (rotation about y).
+void facePlace(char face, float w, float d, float along, float& x, float& z, float& ry) {
+  if (face == 'S') { x = along; z = d / 2; ry = 0; }
+  if (face == 'N') { x = -along; z = -d / 2; ry = PI; }
+  if (face == 'E') { x = w / 2; z = -along; ry = PI / 2; }
+  if (face == 'W') { x = -w / 2; z = along; ry = -PI / 2; }
+}
+
+Node* door(uint32_t wall) {
+  Node* g = group();
+  Material* frame = matS(0xf7f0e2, 0.85f);
+  g->add(place(rbox(1.1f, 1.85f, 0.06f, matS(0x6a4a3a, 0.85f), 0.02f), 0, 0.98f, 0.03f));
+  g->add(place(rbox(1.34f, 0.1f, 0.08f, frame, 0.02f), 0, 1.95f, 0.04f));
+  g->add(place(rbox(0.1f, 1.95f, 0.08f, frame, 0.02f), -0.62f, 0.98f, 0.04f));
+  g->add(place(rbox(0.1f, 1.95f, 0.08f, frame, 0.02f), 0.62f, 0.98f, 0.04f));
+  g->add(place(prop(sphereGeo(0.045f, 8, 6), matS(PAL::gilt, 0.5f)), 0.38f, 0.95f, 0.08f));
+  g->add(place(rbox(1.5f, 0.12f, 0.5f, matS((Color::hex(wall) * 0.85f).toHex(), 0.9f), 0.03f), 0, 0.06f, 0.25f));
+  return g;
+}
 
 Node* building(World& W, const BuildingOpts& o) {
   Node* g = group();
-  g->add(place(rbox(o.w, o.h, o.d, o.color, 0.12f), 0, o.h / 2, 0));
-  g->add(place(rbox(o.w + 0.12f, 0.45f, o.d + 0.12f, (Color::hex(o.color) * 0.78f).toHex(), 0.06f), 0, 0.22f, 0));
-  g->add(place(rbox(o.w + 0.3f, 0.22f, o.d + 0.3f, Color::hex(o.color).lerp(Color::hex(0xffffff), 0.35f).toHex(), 0.05f), 0, o.h - 0.05f, 0));
-  g->add(place(rbox(o.w + 0.4f, 0.3f, o.d + 0.4f, o.roof, 0.08f), 0, o.h + 0.15f, 0));
-  g->add(place(rbox(o.w * 0.18f, 0.5f, o.d * 0.22f, 0x8a929c, 0.05f), o.w * 0.22f, o.h + 0.55f, -o.d * 0.15f));
+  g->add(place(rbox(o.w, o.h, o.d, o.color, 0.05f), 0, o.h / 2, 0));
+  g->add(place(rbox(o.w + 0.12f, 0.45f, o.d + 0.12f, (Color::hex(o.color) * 0.82f).toHex(), 0.04f), 0, 0.22f, 0));
+  g->add(place(rbox(o.w + 0.24f, 0.18f, o.d + 0.24f, Color::hex(o.color).lerp(Color::hex(0xffffff), 0.45f).toHex(), 0.04f), 0, o.h - 0.05f, 0));
+  if (o.gable) {
+    // A pitched roof folded from one sheet, its ridge along the longer side; the gable ends are wall.
+    bool alongX = o.w >= o.d;
+    float span = (alongX ? o.d : o.w) / 2 + 0.35f, len = (alongX ? o.w : o.d) + 0.5f, rise = std::min(o.w, o.d) * 0.36f;
+    std::vector<vec2> tri = {{-span, 0}, {span, 0}, {0, rise}};
+    Node* roof = group();
+    roof->add(prop(geo::extrude({{-span + 0.35f, 0}, {span - 0.35f, 0}, {0, rise - 0.35f * rise / span}}, len - 0.5f, geo::Part::Faces),
+                   matS(o.color, 0.9f)));
+    roof->add(prop(geo::extrude(tri, len, geo::Part::Edges), matS(o.roof, 0.85f)));
+    // A ridge strip.
+    roof->add(place(rbox(0.16f, 0.1f, len + 0.04f, (Color::hex(o.roof) * 0.8f).toHex(), 0.03f), 0, rise, 0));
+    roof->position.y = o.h + 0.02f;
+    roof->rotation.y = alongX ? PI / 2 : 0;
+    g->add(roof);
+  } else {
+    g->add(place(rbox(o.w + 0.4f, 0.3f, o.d + 0.4f, o.roof, 0.06f), 0, o.h + 0.15f, 0));
+    g->add(place(rbox(o.w * 0.18f, 0.5f, o.d * 0.22f, 0x9aa3ad, 0.04f), o.w * 0.22f, o.h + 0.55f, -o.d * 0.15f));
+  }
   for (auto [face, cols] : o.faces) {
     bool sn = face == 'S' || face == 'N';
     double span = sn ? o.w : o.d;
     g->add(windowGrid(W, span * 0.86, (double)o.h * 0.82, o.floors, cols, (double)o.h * 0.3, face, sn ? o.d : o.w));
+  }
+  for (auto [face, along] : o.doors) {
+    float x = 0, z = 0, ry = 0;
+    facePlace(face, o.w, o.d, along, x, z, ry);
+    g->add(place(door(o.color), x, 0, z, ry));
   }
   g->position = {o.x, 0, o.z};
   return g;
@@ -192,15 +262,15 @@ Node* building(World& W, const BuildingOpts& o) {
 Mesh* pathSeg(std::pair<float, float> a, std::pair<float, float> b, float w, Material* m) {
   float dx = b.first - a.first, dz = b.second - a.second;
   float len = std::hypot(dx, dz);
-  Mesh* x = prop(geo::box(len + w * 0.02f, 0.04f, w), m, false);
-  x->position = {(a.first + b.first) / 2, 0.02f, (a.second + b.second) / 2};
+  Mesh* x = prop(geo::box(len + w * 0.02f, 0.06f, w), m, false);
+  x->position = {(a.first + b.first) / 2, 0.03f, (a.second + b.second) / 2};
   x->rotation.y = -std::atan2(dz, dx);
   return x;
 }
 
 Mesh* joint(std::pair<float, float> p, float w, Material* m) {
-  Mesh* x = prop(cylinderGeo(w / 2, w / 2, 0.04f, 20), m, false);
-  x->position = {p.first, 0.02f, p.second};
+  Mesh* x = prop(cylinderGeo(w / 2, w / 2, 0.06f, 28), m, false);
+  x->position = {p.first, 0.03f, p.second};
   return x;
 }
 
@@ -209,9 +279,35 @@ void buildCampus(World& W) {
   W.campus = campus;
   W.scene.add(campus);
 
-  // Diorama base.
-  campus->add(place(rbox(67, 3, 67, matS(PAL::plinth, 0.9f), 0.6f), 0, -1.6f, -2));
-  campus->add(place(rbox(65.4f, 0.2f, 65.4f, matS(PAL::lawn, 0.95f), 0.1f), 0, -0.1f, -2));
+  // The campus is built on a closed hardback: cloth boards, the page block between them, a rounded
+  // spine with gilt bands, and a ribbon bookmark. The lawn is a sheet laid on the front cover.
+  {
+    Node* book = group();
+    book->position = {0, 0, -2};
+    Material* cloth = standard({.color = PAL::cover, .roughness = 0.92f, .paper = 0.8f});
+    Material* pages = standard({.color = 0xffffff, .roughness = 0.95f, .map = stripeTexture(PAL::pageEdge, 0xdcd0b6, 90, false, 0.8f), .paper = 0.4f});
+    book->add(place(rbox(69.6f, 0.5f, 69.6f, cloth, 0.18f), 0, -0.36f, 0));
+    book->add(place(rbox(68.2f, 2.3f, 68.4f, pages, 0.05f), 0.5f, -1.76f, 0));
+    book->add(place(rbox(69.6f, 0.5f, 69.6f, cloth, 0.18f), 0, -3.16f, 0));
+    Mesh* spine = prop(cylinderGeo(1.62f, 1.62f, 69.6f, 32, 1, false), standard({.color = PAL::coverDark, .roughness = 0.9f, .paper = 0.8f}));
+    spine->rotation.x = PI / 2;
+    spine->position = {-34.7f, -1.76f, 0};
+    book->add(spine);
+    for (float z : {-27.f, -25.8f, 25.8f, 27.f}) {
+      Mesh* band = prop(cylinderGeo(1.66f, 1.66f, 0.22f, 32, 1, false), matS(PAL::gilt, 0.5f, 0.3f));
+      band->rotation.x = PI / 2;
+      band->position = {-34.7f, -1.76f, z};
+      book->add(band);
+    }
+    // The ribbon comes out between the pages at the bottom edge and hangs over the side.
+    std::vector<vec2> tail = {{-0.32f, 0}, {0.32f, 0}, {0.32f, -2.6f}, {0, -2.25f}, {-0.32f, -2.6f}};
+    Node* ribbon = card(tail, 0.03f, matS(0xb8463a, 0.8f));
+    ribbon->position = {16, -0.62f, 35.2f};
+    ribbon->rotation.x = 0.06f;
+    book->add(ribbon);
+    campus->add(book);
+  }
+  campus->add(place(rbox(65.6f, 0.12f, 65.6f, matS(PAL::lawn, 0.95f), 0.03f), 0, -0.06f, -2));
 
   Material* pm = matS(PAL::path, 0.95f);
   struct PathDef { std::pair<float, float> a, b; float w; };
@@ -223,37 +319,51 @@ void buildCampus(World& W) {
   for (const auto& p : paths) campus->add(pathSeg(p.a, p.b, p.w, pm));
   for (auto p : std::vector<std::pair<float, float>>{{0, 19}, {0, 2}, {-17.5f, 2}, {-17.5f, 7}, {-17.5f, 0}}) campus->add(joint(p, 2.4f, pm));
   // Library plaza.
-  campus->add(place(prop(geo::box(12, 0.04f, 3.2f), pm, false), 0, 0.02f, -10.4f));
+  campus->add(place(prop(geo::box(12, 0.06f, 3.2f), pm, false), 0, 0.03f, -10.4f));
   // The narrow side path to the shop.
   Material* sm = matS(0xd8cbb2, 0.95f);
   for (size_t i = 0; i + 1 < SIDE_PATH.size(); i++) campus->add(pathSeg(SIDE_PATH[i], SIDE_PATH[i + 1], 1.3f, sm));
   for (size_t i = 1; i + 1 < SIDE_PATH.size(); i++) campus->add(joint(SIDE_PATH[i], 1.3f, sm));
   // Old shop forecourt.
-  campus->add(place(prop(geo::box(9, 0.04f, 2), pm, false), 9, 0.02f, 3.6f));
+  campus->add(place(prop(geo::box(9, 0.06f, 2), pm, false), 9, 0.03f, 3.6f));
 
   // Library: wide, columns at the front.
-  Node* lib = building(W, {.x = 0, .z = -16, .w = 18, .d = 8, .h = 7, .color = PAL::stone, .roof = 0x7f8a96, .faces = {{'S', 9}, {'E', 4}, {'W', 4}}, .floors = 2});
-  for (int i = 0; i < 6; i++) lib->add(place(prop(cylinderGeo(0.28f, 0.32f, 5.6f, 14), matS(0xeee4d0, 0.7f)), -5.f + i * 2, 2.8f, 4.6f));
-  lib->add(place(rbox(12, 0.5f, 2, PAL::stone, 0.06f), 0, 5.85f, 4.4f));
-  lib->add(place(rbox(11, 0.3f, 1.6f, 0xd2c4aa, 0.04f), 0, 0.15f, 4.9f));
+  Node* lib = building(W, {.x = 0, .z = -16, .w = 18, .d = 8, .h = 7, .color = PAL::stone, .roof = 0x8a95a2, .faces = {{'S', 9}, {'E', 4}, {'W', 4}}, .floors = 2,
+                           .doors = {{'S', 0}}});
+  // A portico: rolled-paper columns (fluted by their facets), an entablature and a pediment.
+  for (int i = 0; i < 6; i++) lib->add(place(prop(facetedCylinder(0.27f, 0.31f, 5.6f, 12), matS(0xf3ead8, 0.8f)), -5.f + i * 2, 2.8f, 4.6f));
+  lib->add(place(rbox(12, 0.5f, 2, PAL::stone, 0.05f), 0, 5.85f, 4.4f));
+  lib->add(place(rbox(12.3f, 0.12f, 2.2f, 0xf3ead8, 0.03f), 0, 6.16f, 4.4f));
+  {
+    std::vector<vec2> ped = {{-6.1f, 0}, {6.1f, 0}, {0, 1.5f}};
+    Node* p = card(ped, 1.9f, matS(PAL::stone, 0.85f), matS(0x9aa3ad, 0.85f));
+    p->position = {0, 6.22f, 4.4f};
+    lib->add(p);
+  }
+  lib->add(place(rbox(11, 0.3f, 1.6f, 0xe0d2b8, 0.04f), 0, 0.15f, 4.9f));
   W.libraryGroup = lib;
   campus->add(lib);
 
-  campus->add(building(W, {.x = -22.5f, .z = -3, .w = 8, .d = 9, .h = 6, .color = PAL::brick, .faces = {{'E', 4}, {'S', 3}}, .floors = 3}));
-  campus->add(building(W, {.x = -22.5f, .z = 9, .w = 8, .d = 8, .h = 5, .color = 0xc4a07c, .faces = {{'E', 3}, {'S', 3}, {'N', 3}}, .floors = 2}));
-  campus->add(building(W, {.x = -7, .z = 23, .w = 12, .d = 5, .h = 5.2f, .color = 0xd9c3a5, .roof = PAL::roof, .faces = {{'N', 6}, {'E', 2}}, .floors = 3}));
-  campus->add(building(W, {.x = 11, .z = 23, .w = 10, .d = 5, .h = 5.2f, .color = 0xcdb79a, .roof = PAL::roof, .faces = {{'N', 5}, {'W', 2}}, .floors = 3}));
-  campus->add(building(W, {.x = 23.5f, .z = 3, .w = 7, .d = 9, .h = 3.6f, .color = 0xe2d2b4, .roof = 0x5f8a7a, .faces = {{'W', 4}, {'S', 3}}, .floors = 1}));
+  campus->add(building(W, {.x = -22.5f, .z = -3, .w = 8, .d = 9, .h = 6, .color = PAL::brick, .roof = 0x6f7f92, .faces = {{'E', 4}, {'S', 3}}, .floors = 3,
+                           .gable = true, .doors = {{'E', -3}}}));
+  campus->add(building(W, {.x = -22.5f, .z = 9, .w = 8, .d = 8, .h = 5, .color = 0xd8b088, .roof = 0x6f7f92, .faces = {{'E', 3}, {'S', 3}, {'N', 3}}, .floors = 2,
+                           .gable = true, .doors = {{'E', 2}}}));
+  campus->add(building(W, {.x = -7, .z = 23, .w = 12, .d = 5, .h = 5.2f, .color = 0xe8d2b0, .roof = PAL::roof, .faces = {{'N', 6}, {'E', 2}}, .floors = 3,
+                           .gable = true, .doors = {{'N', 0}}}));
+  campus->add(building(W, {.x = 11, .z = 23, .w = 10, .d = 5, .h = 5.2f, .color = 0xdcc4a2, .roof = PAL::roof, .faces = {{'N', 5}, {'W', 2}}, .floors = 3,
+                           .gable = true, .doors = {{'N', 0}}}));
+  campus->add(building(W, {.x = 23.5f, .z = 3, .w = 7, .d = 9, .h = 3.6f, .color = 0xeedcbc, .roof = 0x6f9a86, .faces = {{'W', 4}, {'S', 3}}, .floors = 1,
+                           .doors = {{'W', 1}}}));
 
   // Student centre, whose left unit was the shop's old home (now empty).
-  Node* sc = building(W, {.x = 9, .z = 6.5f, .w = 9, .d = 5, .h = 4.4f, .color = 0xd5c6ae, .faces = {{'E', 2}}, .floors = 2});
+  Node* sc = building(W, {.x = 9, .z = 6.5f, .w = 9, .d = 5, .h = 4.4f, .color = 0xe2d2b8, .faces = {{'E', 2}}, .floors = 2});
   sc->add(place(rbox(3.6f, 2.2f, 0.1f, mat(0x2c3440, {.rough = 0.3f}), 0.02f), -2.2f, 1.4f, -2.52f));
   sc->add(place(rbox(3.6f, 2.2f, 0.1f, mat(0x8fb4c8, {.rough = 0.3f, .emissive = 0xffd59a, .ei = 0}), 0.02f), 2.2f, 1.4f, -2.52f));
-  Sign* toLet = sign({.w = 1.6f, .h = 0.45f, .text = "TO LET", .fg = 0x6b6152, .bg = 0xefe6d4});
+  Sign* toLet = sign({.w = 1.6f, .h = 0.45f, .text = script::tr("TO LET", "招 租"), .fg = 0x6b6152, .bg = 0xf3ead8});
   toLet->mesh->position = {-2.2f, 2.85f, -2.56f};
   toLet->mesh->rotation.y = PI;
   sc->add(toLet->mesh);
-  Sign* cafeSign = sign({.w = 1.8f, .h = 0.45f, .text = "PRINT · COPY", .fg = 0x2f3a44, .bg = 0xefe6d4});
+  Sign* cafeSign = sign({.w = 1.8f, .h = 0.45f, .text = script::tr("PRINT · COPY", "打印 · 复印"), .fg = 0x2f3a44, .bg = 0xf3ead8});
   cafeSign->mesh->position = {2.2f, 2.85f, -2.56f};
   cafeSign->mesh->rotation.y = PI;
   sc->add(cafeSign->mesh);
@@ -298,6 +408,25 @@ void buildCampus(World& W) {
     b->add(place(rbox(0.08f, 0.42f, 0.4f, PAL::woodDark, 0.02f), 0.6f, 0.21f, 0));
     campus->add(place(b, x, 0, z, ry));
   }
+
+  // Paper clouds hung around the book, far enough out to stay behind it.
+  Rng cr(91);
+  // Clouds glow a little of their own, so they stay pale whichever way they face the sun.
+  Material* cloudFace = standard({.color = 0xfbf7ee, .roughness = 0.95f, .emissive = 0xfbf7ee, .emissiveIntensity = 0.35f, .paper = 1});
+  Material* cloudEdge = standard({.color = 0xe6dfd2, .roughness = 0.95f, .emissive = 0xe6dfd2, .emissiveIntensity = 0.3f, .paper = 1});
+  W.cloudMats = {cloudFace, cloudEdge};
+  for (int i = 0; i < 11; i++) {
+    float a = (float)i / 11 * 2 * PI + (float)cr() * 0.4f;
+    float R = 88 + (float)cr() * 26, y = 6 + (float)cr() * 22;
+    float w = 10 + (float)cr() * 9, h = w * (0.38f + 0.12f * (float)cr());
+    Node* cl = card(cloudOutline(w, h, 100 + i), 0.5f, cloudFace, cloudEdge);
+    cl->position = {std::cos(a) * R, y, -2 + std::sin(a) * R};
+    cl->rotation.y = std::atan2(-std::cos(a), -std::sin(a)) + ((float)cr() - 0.5f) * 0.5f;
+    cl->traverse([](Node* n) { n->castShadow = false; });
+    W.clouds.push_back(cl);
+    W.cloudY.push_back(y);
+    W.scene.add(cl);
+  }
 }
 
 // ---------------- the shop ----------------
@@ -305,7 +434,7 @@ void buildShop(World& W) {
   Node* g = group();
   g->position = P::shop;
   Material* wall = matS(PAL::cream, 0.9f);
-  g->add(place(rbox(8, 0.12f, 5.5f, matS(0xc8a97e, 0.8f), 0.03f), 0, 0.06f, 0));
+  g->add(place(rbox(8, 0.12f, 5.5f, matS(PAL::kraft, 0.85f), 0.03f), 0, 0.06f, 0));
   g->add(place(rbox(8, 3.2f, 0.25f, wall, 0.05f), 0, 1.6f, -2.62f));
   g->add(place(rbox(0.25f, 3.2f, 5.5f, wall, 0.05f), -3.88f, 1.6f, 0));
   g->add(place(rbox(0.25f, 3.2f, 5.5f, wall, 0.05f), 3.88f, 1.6f, 0));
@@ -320,11 +449,43 @@ void buildShop(World& W) {
   pane->position = {1.05f, 1.53f, 2.64f};
   g->add(pane);
 
-  Sign* shopSign = sign({.w = 6.2f, .h = 0.55f, .text = "SECOND-HAND BOOKS", .fg = 0xa39a8a, .bg = 0xe3d8c3});
+  Sign* shopSign = sign({.w = 6.2f, .h = 0.55f, .text = script::tr("SECOND-HAND BOOKS", "二 手 书 店"), .fg = 0xa39a8a, .bg = 0xe3d8c3,
+                         .size = script::zh() ? 0.72f : 0.62f});
   shopSign->mesh->position = {0.3f, 2.85f, 2.8f};
   g->add(shopSign->mesh);
 
-  Sign* doorSign = sign({.w = 0.62f, .h = 0.42f, .text = "OPEN\n9–5", .px = 160, .fg = 0x2f3a44, .bg = 0xfbf6ea, .size = 0.7f});
+  // A striped paper awning over the window, with a scalloped edge.
+  {
+    Material* stripes = standard({.color = 0xffffff, .roughness = 0.9f, .side = Side::Double, .map = stripeTexture(0x3f8068, 0xf5ecda, 14, true), .paper = 1});
+    Mesh* top = prop(geo::plane(5.75f, 0.78f), stripes);
+    top->position = {1.05f, 2.36f, 3.1f};
+    top->rotation.x = -PI / 2 + 0.52f;
+    g->add(top);
+    std::vector<vec2> scallop = {{2.875f, 0.12f}, {-2.875f, 0.12f}};
+    const int bumps = 14;
+    for (int i = 0; i < bumps; i++)
+      for (int k = 0; k <= 6; k++) {
+        float a = PI * k / 6;
+        float cx = -2.875f + (i + 0.5f) * 5.75f / bumps;
+        scallop.push_back({cx - std::cos(a) * 5.75f / bumps / 2, -std::sin(a) * 0.14f});
+      }
+    Mesh* valance = prop(geo::extrude(scallop, 0.02f, geo::Part::All), standard({.color = 0x3f8068, .roughness = 0.9f, .paper = 1}));
+    valance->position = {1.05f, 2.04f, 3.42f};
+    g->add(valance);
+  }
+  // A flower box under the window.
+  {
+    g->add(place(rbox(5.3f, 0.24f, 0.32f, matS(PAL::kraft, 0.85f), 0.03f), 1.05f, 0.68f, 2.93f));
+    Rng fr(17);
+    for (int i = 0; i < 22; i++) {
+      float x = 1.05f - 2.5f + 5.0f * (i + (float)fr() * 0.6f) / 22;
+      uint32_t col = pick(fr, std::vector<uint32_t>{0xe8706a, 0xf2c45a, 0xf2a0bc, 0xfbf6ea, 0xe8905a});
+      g->add(place(prop(facetedBall(0.075f, 0), matS(col, 0.85f)), x, 0.9f + (float)fr() * 0.08f, 2.9f + ((float)fr() - 0.5f) * 0.14f));
+      g->add(place(prop(facetedCone(0.06f, 0.16f, 4), matS(0x6b9e62, 0.9f)), x + 0.06f, 0.86f, 2.95f));
+    }
+  }
+
+  Sign* doorSign = sign({.w = 0.62f, .h = 0.42f, .text = script::tr("OPEN\n9–5", "营业\n9–5"), .px = 160, .fg = 0x2f3a44, .bg = 0xfbf6ea, .size = 0.7f});
   doorSign->mesh->position = {-1.8f, 1.55f, 2.79f};
   g->add(doorSign->mesh);
 
@@ -349,7 +510,7 @@ void buildShop(World& W) {
 }
 
 void updateShop(World& W, float t) {
-  std::string door = "OPEN\n9–5";
+  std::string door = script::tr("OPEN\n9–5", "营业\n9–5");
   float stSign = 0, stLit = 0.5f;
   float litFrom = 0.5f, litAt = -1, signFrom = 0, signAt = -1;
   for (const ShopKey& k : W.shopKeys) {
@@ -381,13 +542,20 @@ const std::vector<std::vector<std::pair<float, float>>> ROUTES = {
 
 void buildCrowd(World& W) {
   const int N = 52;
-  Material* bodyMat = standard({.roughness = 0.8f});
-  Material* headMat = standard({.roughness = 0.7f});
   auto& C = W.crowd;
-  C.bodies = instanced(FIG::bodyGeo(), bodyMat, N);
-  C.heads = instanced(FIG::headGeo(), headMat, N);
-  C.bodies->castShadow = C.heads->castShadow = true;
-  C.bodies->frustumCulled = C.heads->frustumCulled = false;
+  // One instanced mesh per part of the paper doll; colours per instance.
+  C.legs = instanced(FIG::legsGeo(), standard({.roughness = 0.9f, .paper = 1}), N);
+  C.bodies = instanced(FIG::bodyGeo(), standard({.roughness = 0.85f, .paper = 1}), N);
+  C.heads = instanced(FIG::headGeo(), standard({.roughness = 0.75f, .paper = 1}), N);
+  C.hair = instanced(FIG::hairGeo(), standard({.roughness = 0.95f, .paper = 1}), N);
+  C.eyes = instanced(FIG::eyesGeo(), matS(PAL::ink, 0.6f), N);
+  C.armsL = instanced(FIG::armGeo(), standard({.roughness = 0.85f, .paper = 1}), N);
+  C.armsR = instanced(FIG::armGeo(), standard({.roughness = 0.85f, .paper = 1}), N);
+  for (InstancedMesh* m : C.parts()) {
+    m->castShadow = m != C.eyes;
+    m->receiveShadow = true;
+    m->frustumCulled = false;
+  }
   for (const auto& r : ROUTES) C.curves.push_back(&polyPath(r));
   for (const Curve* c : C.curves) C.lens.push_back(c->length());
   Rng r(5);
@@ -400,10 +568,15 @@ void buildCrowd(World& W) {
     w.gate = (float)r();
     w.bob = (float)r() * 10;
     C.walkers.push_back(w);
-    C.bodies->setColor(i, Color::hex(pick(r, PAL::shirts)));
+    Color shirt = Color::hex(pick(r, PAL::shirts));
+    C.bodies->setColor(i, shirt);
+    C.armsL->setColor(i, shirt);
+    C.armsR->setColor(i, shirt);
     C.heads->setColor(i, Color::hex(pick(r, PAL::skin)));
+    C.legs->setColor(i, Color::hex(PAL::trousers[i % PAL::trousers.size()]));
+    C.hair->setColor(i, Color::hex(PAL::hair[(i * 7 + 3) % PAL::hair.size()]));
   }
-  W.scene.add(C.bodies, C.heads);
+  for (InstancedMesh* m : C.parts()) W.scene.add(m);
 }
 
 float crowdClock(const World& W, float t) {
@@ -445,10 +618,21 @@ void updateCrowd(World& W, float t) {
     tv.z -= nv.x * w.side * 0.5f;
     float s = smooth(f / 0.025f) * smooth((1 - f) / 0.025f);
     s *= clamp((level - w.gate) * 8 + 0.5f);
-    float bob = std::fabs(std::sin(tau * 7 + w.bob)) * 0.05f;
+    float step = tau * 7 + w.bob;
+    float bob = std::fabs(std::sin(step)) * 0.05f;
     float sc = std::max(s, 0.0001f);
-    C.bodies->matrices[i] = mat4::compose({tv.x, FIG::bodyY + bob, tv.z}, quat::euler({0, yaw, std::sin(tau * 7 + w.bob) * 0.05f}), {sc, sc, sc});
-    C.heads->matrices[i] = mat4::compose({tv.x, FIG::headY + bob, tv.z}, quat::euler({0, yaw, 0}), {sc, sc, sc});
+    // Each part relative to the walker: position, yaw, then its own offset and turn.
+    mat4 root = mat4::compose({tv.x, 0, tv.z}, quat::euler({0, yaw, 0}), {sc, sc, sc});
+    auto part = [&](vec3 p, vec3 rot = {}) { return root * mat4::compose(p, quat::euler(rot), {1, 1, 1}); };
+    float sway = std::sin(step) * 0.05f, swing = std::sin(step) * 0.55f;
+    C.legs->matrices[i] = part({0, FIG::legsY + bob * 0.4f, 0});
+    C.bodies->matrices[i] = part({0, FIG::bodyY + bob, 0}, {0, 0, sway});
+    mat4 head = part({0, FIG::headY + bob, 0});
+    C.heads->matrices[i] = head;
+    C.hair->matrices[i] = head;
+    C.eyes->matrices[i] = head;
+    C.armsL->matrices[i] = part({-FIG::shoulderX, FIG::shoulderY + bob, 0}, {swing, 0, -0.12f});
+    C.armsR->matrices[i] = part({FIG::shoulderX, FIG::shoulderY + bob, 0}, {-swing, 0, 0.12f});
   }
 }
 
@@ -555,7 +739,15 @@ World* createWorld() {
   W.post.bloomStrength = 0.32f;
   W.post.bloomRadius = 0.55f;
   W.post.bloomThreshold = 0.86f;
-  W.post.vignette = 0.55f;
+  W.post.vignette = 0.4f;
+  // A photographed paper model: soft contact shadows, a shallow focus on what the camera looks at
+  // (see applyFx), and a warm, gently lifted print.
+  W.post.aoStrength = 0.9f;
+  W.post.aoRadius = 0.45f;
+  W.post.dofMaxRadius = 16;
+  W.post.contrast = 0.96f;
+  W.post.gain = {1.0f, 0.985f, 0.95f};
+  W.post.lift = {0.035f, 0.03f, 0.025f};
 
   buildCampus(W);
   buildShop(W);
@@ -582,6 +774,7 @@ void World::update(float t) {
   updateCrowd(*this, t);
   updateJia(*this, t);
   updateShop(*this, t);
+  for (size_t i = 0; i < clouds.size(); i++) clouds[i]->position.y = cloudY[i] + std::sin(t * 0.21f + i * 1.7f) * 0.6f;
   for (auto& f : updaters) f(t);
 }
 
@@ -598,6 +791,11 @@ void World::focus(const vec3& p, float r, float amt) {
 }
 
 void World::applyFx() {
+  // Focus on the camera's target. Wide views of the whole model get a strong tilt-shift blur;
+  // close views stay readable.
+  float dist = distance(camera.position, camera.target);
+  post.dofFocus = dist;
+  post.dofAperture = lerp(4.f, 16.f, smooth((dist - 12) / 40)) * fx.dof;
   post.saturation = fx.sat;
   post.fade = fx.fade;
   post.flash = fx.flash;

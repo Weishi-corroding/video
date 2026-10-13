@@ -44,9 +44,9 @@ Update buildC7(Ctx& ctx) {
   std::vector<Pin> pins;
   for (int i = 0; i < 6; i++) {
     Node* g = group();
-    Mesh* stem = eng::mesh(cylinderGeo(0.07f, 0.07f, 2.6f, 8), standard({.color = 0xffcf5a, .emissive = 0xffb02e, .emissiveIntensity = 0.4f}));
+    Mesh* stem = eng::mesh(facetedCylinder(0.06f, 0.06f, 2.6f, 6), standard({.color = 0x8a6646, .roughness = 0.9f, .paper = 1}));
     stem->position.y = 1.3f;
-    Mesh* head = eng::mesh(sphereGeo(0.55f, 20, 14), standard({.color = 0xffcf5a, .roughness = 0.4f, .emissive = 0xffb02e, .emissiveIntensity = 0.7f}));
+    Mesh* head = eng::mesh(facetedBall(0.55f, 1), standard({.color = 0xf2c25a, .roughness = 0.85f, .emissive = 0xffb02e, .emissiveIntensity = 0.5f, .paper = 1}));
     head->position.y = 2.9f;
     CanvasTex* num = canvasTexture(128, 128, [i](Canvas& cv, int w, int h) {
       drawCentredLines(cv, {std::to_string(i + 1)}, w / 2.f, h / 2.f + 4, 92, 800, rgba(0x1a1406), 92);
@@ -58,7 +58,7 @@ Update buildC7(Ctx& ctx) {
     sp->renderOrder = 5;
     Geometry* baseGeo = geo::circle(0.7f, 28);
     baseGeo->rotateX(-PI / 2);
-    Mesh* base = eng::mesh(baseGeo, glow(0xffcf5a, 0.35f));
+    Mesh* base = eng::mesh(baseGeo, basic({.color = 0xe8c060, .opacity = 0.45f, .transparent = true}));
     base->position.y = 0.03f;
     g->add(stem, head, sp, base);
     g->position = STEPS[i].at;
@@ -93,7 +93,7 @@ Update buildC7(Ctx& ctx) {
       float k = live ? backOut(ramp(t, p.t0, p.t0 + 0.7f, linear)) : 0;
       float out = 1 - ramp(t, T("7e", 0.0f), T("7e", 1.6f));
       scaleIn(p.g, k * out * 1.2f);
-      p.head->material->emissiveIntensity = 0.7f + 0.5f * std::max(0.f, std::sin(t * 2.4f - i * 0.6f)) * ramp(t, T("7d"), T("7d", 1));
+      p.head->material->emissiveIntensity = 0.5f + 0.5f * std::max(0.f, std::sin(t * 2.4f - i * 0.6f)) * ramp(t, T("7d"), T("7d", 1));
     }
     W.fx.fade = std::max({W.fx.fade, ramp(t, c("7f").e + 0.6f, c("7f").e + 2.4f) * 0.82f, ramp(t, DURATION - 1.6f, DURATION - 0.1f)});
   };

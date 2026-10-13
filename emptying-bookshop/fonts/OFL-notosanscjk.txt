@@ -1,5 +1,6 @@
 Copyright 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'.
-NotoSansSC-Subset.otf is Noto Sans CJK SC Regular cut down to the characters this film uses (tools/subset-cjk.py).
+NotoSansSC-Regular.subset.otf and NotoSansSC-Bold.subset.otf are Noto Sans CJK SC Regular and Bold, cut down to the
+characters this film uses (tools/subset-cjk.py).
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:

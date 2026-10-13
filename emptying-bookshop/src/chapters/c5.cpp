@@ -11,7 +11,7 @@ Update buildC5(Ctx& ctx) {
 
   W.addLight({{T("5a", 2), "dusk", 3}, {T("5b", 2.5f), "evening", 3}});
   W.addCrowd({{T("5a", 1), 0.4f, 2}});
-  W.addShop({{.t = T("5b", 1.2f), .door = "OPEN\nUNTIL 9", .lit = 1}});
+  W.addShop({{.t = T("5b", 1.2f), .door = script::tr("OPEN\nUNTIL 9", "营业到\n晚上9点"), .lit = 1}});
 
   W.addCam({
       {.t = T("5a", 0.8f), .d = 3.0f, .p = {21, 5.6f, -11.5f}, .l = {16.8f, 1.4f, -21.2f}},
@@ -40,7 +40,7 @@ Update buildC5(Ctx& ctx) {
   // ---- test 2: the swap shelf ----
   Node* swap = group();
   swap->add(shelf(1.3f, 1.3f, 0.42f, {.seed = 12, .rows = 3}));
-  Sign* swapSign = sign({.w = 1.3f, .h = 0.32f, .text = "SWAP · A BOOK FOR A BOOK", .px = 120, .fg = 0xfff7e6, .bg = 0x2f6b55});
+  Sign* swapSign = sign({.w = 1.3f, .h = 0.32f, .text = script::tr("SWAP · A BOOK FOR A BOOK", "换书架 · 以书换书"), .px = 120, .fg = 0xfff7e6, .bg = 0x2f6b55});
   swapSign->mesh->position = {0, 1.5f, 0.05f};
   swap->add(swapSign->mesh);
   swap->position = {12.8f, 0, -21.3f};
@@ -52,7 +52,7 @@ Update buildC5(Ctx& ctx) {
   Node* studySign = group();
   studySign->add(place(rbox(0.06f, 1.0f, 0.06f, PAL::woodDark, 0.01f), -0.3f, 0.5f, 0));
   studySign->add(place(rbox(0.06f, 1.0f, 0.06f, PAL::woodDark, 0.01f), 0.3f, 0.5f, 0));
-  Sign* ss = sign({.w = 0.9f, .h = 0.6f, .text = "STUDY\nHERE", .px = 160, .fg = 0x2f3a44, .bg = 0xfbf6ea});
+  Sign* ss = sign({.w = 0.9f, .h = 0.6f, .text = script::tr("STUDY\nHERE", "欢迎来\n学习"), .px = 160, .fg = 0x2f3a44, .bg = 0xfbf6ea});
   ss->mesh->position = {0, 1.0f, 0.04f};
   studySign->add(ss->mesh);
   place(studySign, 15.9f, 0.1f, -18.5f, 0.3f);
@@ -95,7 +95,7 @@ Update buildC5(Ctx& ctx) {
   hedgeM->rotation.y = PI / 2;
   hedgeM->position = {23.6f, 0.55f, -21.2f};
   W.scene.add(hedgeM);
-  Sign* timetable = sign({.w = 0.55f, .h = 0.75f, .text = "QUIET\n6–9\n—\nTALK:\nFAR SIDE", .px = 200, .fg = 0x2f3a44, .bg = 0xfbf6ea, .size = 0.82f});
+  Sign* timetable = sign({.w = 0.55f, .h = 0.75f, .text = script::tr("QUIET\n6–9\n—\nTALK:\nFAR SIDE", "6–9点\n安静自习\n—\n讨论请到\n远侧"), .px = 200, .fg = 0x2f3a44, .bg = 0xfbf6ea, .size = 0.82f});
   timetable->mesh->position = {13.85f, 1.45f, -21.84f};
   W.scene.add(timetable->mesh);
 

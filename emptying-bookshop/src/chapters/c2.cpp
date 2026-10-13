@@ -37,7 +37,7 @@ Update buildC2(Ctx& ctx) {
   // ---- reaction 1: a heavy verdict that blocks the view ----
   Node* block = group();
   block->add(rbox(4.6f, 1.3f, 0.7f, mat(0xd8604f, {.rough = 0.7f}), 0.08f));
-  Sign* bs = sign({.w = 4.3f, .h = 1.0f, .text = "NOBODY READS\nANYMORE", .fg = 0xfff7ec, .bg = 0xd8604f, .size = 0.78f});
+  Sign* bs = sign({.w = 4.3f, .h = 1.0f, .text = script::tr("NOBODY READS\nANYMORE", "现在没人\n读书了"), .fg = 0xfff7ec, .bg = 0xd8604f, .size = 0.78f});
   bs->mesh->position.z = 0.36f;
   block->add(bs->mesh);
   block->rotation.y = 0.5f;
@@ -45,8 +45,10 @@ Update buildC2(Ctx& ctx) {
   const vec3 blockAt{17.6f, 0, -17.9f};
 
   // ---- reaction 2: another campus as a translucent miniature, and its banner ----
-  auto holo = [](float o) { return basic({.color = 0xcfe3ff, .opacity = o, .transparent = true, .depthWrite = false}); };
-  auto edge = [] { return basic({.color = 0xe8f1ff, .opacity = 0.75f, .transparent = true}); };
+  // Tracing paper: a pale, see-through model of another campus with pencilled edges.
+  auto holo = [](float o) { return standard({.color = 0xf6f1e4, .roughness = 0.95f, .emissive = 0xf6f1e4, .emissiveIntensity = 0.25f,
+                                             .opacity = std::min(1.f, o * 2.2f), .transparent = true, .depthWrite = false, .paper = 1}); };
+  auto edge = [] { return basic({.color = 0x5a5046, .opacity = 0.8f, .transparent = true}); };
   Node* ghost = group();
   ghost->position = {24.2f, 6.0f, -17.0f};
   auto addHolo = [&](float w, float h, float d, float x, float y, float z, float o = 0.22f) {
@@ -67,7 +69,7 @@ Update buildC2(Ctx& ctx) {
   struct Dot { Mesh* m; float a, r, s; };
   std::vector<Dot> dots;
   for (int i = 0; i < 14; i++) {
-    Mesh* dm = eng::mesh(sphereGeo(0.12f, 10, 8), basic({.color = 0xffe2b0, .opacity = 0.9f, .transparent = true}));
+    Mesh* dm = eng::mesh(facetedBall(0.12f, 0), standard({.color = 0xe8a060, .roughness = 0.9f, .opacity = 0.95f, .transparent = true, .paper = 1}));
     Dot dd{dm, 0, 0, 0};
     dd.a = (float)crowdR() * 6.28f;
     dd.r = 0.4f + (float)crowdR() * 0.7f;
@@ -77,7 +79,7 @@ Update buildC2(Ctx& ctx) {
   }
   W.scene.add(ghost);
 
-  Sign* banner = sign({.w = 3.4f, .h = 0.55f, .text = "HALF-PRICE WEEK", .fg = 0xffffff, .bg = 0xd8604f, .size = 0.62f});
+  Sign* banner = sign({.w = 3.4f, .h = 0.55f, .text = script::tr("HALF-PRICE WEEK", "半 价 周"), .fg = 0xffffff, .bg = 0xd8604f, .size = 0.62f});
   banner->material()->side = Side::Double;
   W.scene.add(banner->mesh);
   const vec3 bannerFrom{25.4f, 7.3f, -17.6f};

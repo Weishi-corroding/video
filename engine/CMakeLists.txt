@@ -2,7 +2,8 @@ cmake_minimum_required(VERSION 3.20)
 project(eng LANGUAGES CXX)
 
 # A small C++/Vulkan engine for rendering films offline: scene graph, geometry, lighting with sun
-# shadows, bloom and grading, 2D text and shapes for overlays, and MP4 output through ffmpeg.
+# shadows, ambient occlusion, depth of field, bloom and grading, 2D text and shapes for overlays,
+# a small synthesizer for scores, and MP4 output through ffmpeg.
 
 find_package(Vulkan REQUIRED)
 find_package(PkgConfig REQUIRED)
@@ -15,7 +16,8 @@ find_program(GLSLC glslc REQUIRED)
 set(ENG_SHADER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/shaders)
 set(ENG_SHADER_OUT ${CMAKE_CURRENT_BINARY_DIR}/shaders)
 file(MAKE_DIRECTORY ${ENG_SHADER_OUT})
-set(ENG_SHADERS mesh.vert points.vert sprite.vert mesh.frag shadow.vert sky.vert sky.frag fullscreen.vert bright.frag blur.frag final.frag)
+set(ENG_SHADERS mesh.vert points.vert sprite.vert mesh.frag shadow.vert sky.vert sky.frag fullscreen.vert bright.frag blur.frag final.frag
+                ssao.frag aoblur.frag dofpre.frag dofgather.frag)
 set(ENG_SHADER_INCS)
 foreach(s ${ENG_SHADERS})
   set(out ${ENG_SHADER_OUT}/${s}.inc)
@@ -36,7 +38,9 @@ add_library(eng STATIC
   src/canvas.cpp
   src/text.cpp
   src/renderer.cpp
-  src/video.cpp)
+  src/video.cpp
+  src/synth.cpp
+  src/paper.cpp)
 add_dependencies(eng eng_shaders)
 target_compile_features(eng PUBLIC cxx_std_20)
 target_include_directories(eng PUBLIC include PRIVATE ${ENG_SHADER_OUT})

@@ -106,6 +106,7 @@ Material* standard(const StandardParams& p) {
   m->depthWrite = p.depthWrite;
   m->side = p.side;
   m->map = p.map;
+  m->paper = p.paper;
   return m;
 }
 

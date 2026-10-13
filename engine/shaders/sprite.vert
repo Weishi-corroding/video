@@ -11,6 +11,8 @@ layout(location = 1) out vec3 vNormal;
 layout(location = 2) out vec2 vUv;
 layout(location = 3) out vec3 vColor;
 layout(location = 4) out float vDepth;
+layout(location = 5) out vec3 vObj;
+layout(location = 6) out vec3 vObjN;
 
 // A quad that always faces the camera, sized by the node's scale.
 void main() {
@@ -23,5 +25,7 @@ void main() {
   vUv = aUv;
   vColor = vec3(1.0);
   vDepth = -(F.view * wp).z;
+  vObj = aPos;
+  vObjN = vec3(0.0, 0.0, 1.0);
   gl_Position = F.viewProj * wp;
 }

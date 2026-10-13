@@ -37,6 +37,9 @@ struct Material {
   Side side = Side::Front;
   Texture* map = nullptr;   // multiplies the colour (and the alpha)
   float pointSize = 1;      // for point clouds, in pixels at 720p
+  // How much the surface looks like paper (0..1, standard shading only): fibres in the colour, a
+  // fine relief in the normal, and light that wraps a little past the terminator. See Scene::paper.
+  float paper = 0;
 
   // Free slots for the application, e.g. an opacity to fade from.
   float user[4] = {-1, 0, 0, 0};
@@ -54,6 +57,7 @@ struct StandardParams {
   bool transparent = false, depthWrite = true;
   Side side = Side::Front;
   Texture* map = nullptr;
+  float paper = 0;
 };
 Material* standard(const StandardParams& p);
 
