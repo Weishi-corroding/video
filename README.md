@@ -15,7 +15,7 @@ python3 -m http.server 8000
 # then open http://localhost:8000
 ```
 
-There is no build step and nothing to install. Three.js r186 is vendored in `vendor/three`, so the film also works offline. To publish it, turn on GitHub Pages for this repository (Settings → Pages → deploy from `main`, root).
+There is no build step and nothing to install. Three.js r186 is vendored in `vendor/three` and the Latin fonts (Inter, Source Serif 4) in `vendor/fonts`, so the film also works offline and looks the same on every system. To publish it, turn on GitHub Pages for this repository (Settings → Pages → deploy from `main`, root).
 
 ## Chapters
 
@@ -55,11 +55,12 @@ js/timeline.js      master clock (play, pause, seek, speed)
 js/narration.js     speech synthesis wrapper
 js/ui.js            seek bar, menus, toggles, keys, captions, start screen
 tools/check-script.mjs   pacing check for the narration script
+vendor/three, vendor/fonts   three.js r186; Inter and Source Serif 4 (Latin subsets)
 ```
 
 Everything on screen is computed as a pure function of the master time. That's why seeking, scrubbing, and speed changes are exact and never drift. Scene animations reference narration cues by id (`c['4d'].s`), so retiming a line in `js/script.js` moves its animation too. After editing the script, run `node tools/check-script.mjs` to catch lines that are too dense to voice in their slot.
 
-Visual language: dark teal surroundings, warm ivory models, **amber for what the AI produces**, and **mint for the learner's own reasoning and checking**. Colour follows the role, not the student, so neither student is coded as "the good one".
+Visual language: dark teal surroundings, warm ivory models, **amber for what the AI produces**, and **mint for the learner's own reasoning and checking**. Colour follows the role, not the student, so neither student is coded as "the good one". To tell the two apart without colour, each keeps a small neutral marker throughout: A wears a scarf, B a knit cap.
 
 ## Conceptual safeguards
 
@@ -72,4 +73,4 @@ Visual language: dark teal surroundings, warm ivory models, **amber for what the
 
 ## Licence
 
-MIT (see `LICENSE`). Three.js is © three.js authors, MIT, in `vendor/three/LICENSE`.
+MIT (see `LICENSE`). Three.js is © three.js authors, MIT, in `vendor/three/LICENSE`. Inter and Source Serif 4 are under the SIL Open Font License 1.1, in `vendor/fonts/OFL-*.txt`.

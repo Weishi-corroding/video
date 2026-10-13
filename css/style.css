@@ -1,3 +1,21 @@
+/* Bundled Latin fonts (SIL OFL, see vendor/fonts), so the film looks the same on every system.
+   Other scripts and symbols (→ ≠, Chinese) fall through to the system fonts in the stacks below. */
+@font-face {
+  font-family: "Inter"; font-style: normal; font-weight: 400 700; font-display: swap;
+  src: url("../vendor/fonts/inter-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Source Serif 4"; font-style: normal; font-weight: 400 700; font-display: swap;
+  src: url("../vendor/fonts/source-serif-4-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Source Serif 4"; font-style: italic; font-weight: 400 700; font-display: swap;
+  src: url("../vendor/fonts/source-serif-4-italic-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 :root {
   --teal-950: #041a1c;
   --teal-900: #082427;
@@ -11,8 +29,8 @@
   --mint: #7fe3c3;
   --panel: rgba(4, 26, 28, 0.78);
   --line: rgba(241, 231, 211, 0.16);
-  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC", sans-serif;
-  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Songti SC", "Noto Serif CJK SC", "Noto Serif SC", serif;
+  --sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC", sans-serif;
+  --serif: "Source Serif 4", "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Songti SC", "Noto Serif CJK SC", "Noto Serif SC", serif;
   --fs-tag: clamp(11px, 0.55vw + 6.5px, 15px);
   --fs-cap: clamp(15px, 1.05vw + 7px, 25px);
 }
@@ -24,7 +42,9 @@ kbd { font-family: var(--sans); font-size: 0.85em; padding: 1px 6px; border: 1px
 
 #stage { position: fixed; inset: 0; overflow: hidden; }
 #gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-#anchors, #overlays { position: absolute; inset: 0; pointer-events: none; }
+#anchors, #overlays, #vignette, #dip { position: absolute; inset: 0; pointer-events: none; }
+#vignette { background: radial-gradient(ellipse 115% 100% at 50% 55%, transparent 52%, rgba(2, 14, 16, 0.5) 100%); }
+#dip { background: var(--teal-900); opacity: 0; }
 body.idle #stage { cursor: none; }
 
 /* ---------- labels anchored to the scene ---------- */
@@ -47,11 +67,12 @@ body.zh .zh-line { display: block; font-size: 0.86em; margin-top: 3px; opacity: 
 .tag.tiny { font-size: calc(var(--fs-tag) * 0.8); padding: 0.3em 0.65em; }
 .tag.big { font-size: calc(var(--fs-tag) * 1.12); }
 .tag.wide { white-space: normal; width: max-content; max-width: min(420px, 60vw); }
+.tag.thought { font-weight: 700; letter-spacing: 0.18em; padding: 0.12em 0.55em 0.12em 0.73em; border-radius: 999px; }
 
 .speech {
   font-family: var(--serif); font-style: italic; font-size: calc(var(--fs-tag) * 1.15); line-height: 1.3; white-space: nowrap;
   padding: 0.5em 0.9em; border-radius: 1em; background: var(--ivory); color: var(--teal-900);
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.3); position: relative; margin-bottom: 10px;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.3); margin-bottom: 10px;
 }
 .speech::after { content: ""; position: absolute; left: 50%; bottom: -7px; width: 14px; height: 14px; background: var(--ivory); transform: translateX(-50%) rotate(45deg); border-radius: 2px; }
 .speech.teacher { background: #dff7ee; }
@@ -70,7 +91,8 @@ body.zh .zh-line { display: block; font-size: 0.86em; margin-top: 3px; opacity: 
 .callout .row span { display: block; color: var(--ivory); font-weight: 650; font-size: 0.82em; text-transform: uppercase; letter-spacing: 0.09em; margin-bottom: 0.15em; }
 .callout .row.ai { border-color: var(--amber); }
 .callout .row.me { border-color: var(--mint); }
-.lbl.none .zh-line { font-size: calc(var(--fs-tag) * 0.85); color: var(--ivory-dim); max-width: clamp(220px, 19vw, 320px); margin-top: 6px; }
+.callout .zh-line { font-style: normal; }
+.callout h4 .zh-line { font-family: var(--sans); font-size: 0.72em; font-weight: 400; color: var(--ivory-dim); }
 
 .question-tag {
   font-family: var(--serif); font-size: calc(var(--fs-tag) * 1.25); line-height: 1.25; text-align: center; white-space: nowrap;
@@ -85,7 +107,7 @@ body.zh .zh-line { display: block; font-size: 0.86em; margin-top: 3px; opacity: 
 .ov { position: absolute; text-align: center; }
 .ov.center-top { left: 50%; top: 10.5%; transform: translateX(-50%); }
 .ov.center-mid { left: 50%; top: 40%; transform: translate(-50%, -50%); }
-.ov.bottom-band { left: 50%; bottom: 23%; transform: translateX(-50%); }
+.ov.bottom-band { left: 50%; top: auto; bottom: 23%; transform: translateX(-50%); }
 .ov .zh-line { color: var(--ivory-dim); font-size: calc(var(--fs-tag) * 1.05); margin-top: 0.5em; }
 
 .badge-big { display: inline-flex; flex-direction: column; gap: 0.25em; padding: 0.7em 1.4em; border: 1px solid rgba(242, 163, 58, 0.6); border-radius: 12px; background: var(--panel); }
@@ -93,7 +115,7 @@ body.zh .zh-line { display: block; font-size: 0.86em; margin-top: 3px; opacity: 
 .badge-big span { font-size: var(--fs-tag); color: var(--ivory-dim); }
 
 .question-card {
-  font-family: var(--serif); font-size: clamp(18px, 1.7vw + 6px, 36px); line-height: 1.28; max-width: min(860px, 82vw);
+  font-family: var(--serif); font-size: clamp(18px, 1.7vw + 6px, 36px); line-height: 1.28; max-width: min(860px, 82vw); text-wrap: balance;
   padding: 0.8em 1.1em; border-radius: 16px; background: rgba(4, 26, 28, 0.92); border: 1px solid var(--line);
   box-shadow: 0 16px 50px rgba(0, 0, 0, 0.35);
 }
@@ -103,7 +125,8 @@ body.zh .zh-line { display: block; font-size: 0.86em; margin-top: 3px; opacity: 
 .muted { color: var(--ivory-dim); }
 
 .reflect {
-  width: min(520px, 86vw); padding: 1.6em 1.8em 1.4em; border-radius: 20px; background: rgba(4, 26, 28, 0.86); border: 1px solid rgba(127, 227, 195, 0.35);
+  width: min(520px, 86vw); padding: 1.6em 1.8em 1.4em; border-radius: 20px; background: rgba(4, 26, 28, 0.92); border: 1px solid rgba(127, 227, 195, 0.35);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
   box-shadow: 0 20px 70px rgba(0, 0, 0, 0.45);
 }
 .reflect .ring { width: 64px; height: 64px; margin: 0 auto 0.6em; }
@@ -112,7 +135,7 @@ body.zh .zh-line { display: block; font-size: 0.86em; margin-top: 3px; opacity: 
 .reflect circle.bg { stroke: rgba(241, 231, 211, 0.12); }
 .reflect circle.fg { stroke: var(--mint); stroke-linecap: round; stroke-dasharray: 276.5; stroke-dashoffset: 276.5; }
 .reflect h3 { margin: 0 0 0.5em; font-size: 0.85em; letter-spacing: 0.22em; text-transform: uppercase; color: var(--mint); font-weight: 600; }
-.reflect p { margin: 0 0 0.9em; font-family: var(--serif); font-size: clamp(17px, 1.2vw + 7px, 27px); line-height: 1.4; }
+.reflect p { margin: 0 0 0.9em; font-family: var(--serif); font-size: clamp(17px, 1.2vw + 7px, 27px); line-height: 1.4; text-wrap: balance; }
 .reflect small { color: var(--ivory-dim); font-size: var(--fs-tag); }
 
 .legend-card { display: inline-block; text-align: left; padding: 0.9em 1.2em; border-radius: 14px; background: var(--panel); border: 1px solid var(--line); font-size: calc(var(--fs-tag) * 1.05); line-height: 1.6; }
@@ -126,7 +149,7 @@ body.zh .zh-line { display: block; font-size: 0.86em; margin-top: 3px; opacity: 
 .time-arrow span::after { content: ""; position: absolute; right: 0.3em; top: 50%; border: 5px solid transparent; border-left-color: rgba(241, 231, 211, 0.7); transform: translate(50%, -50%); }
 
 .endcard { width: min(980px, 92vw); padding: 2.4em 2em; border-radius: 28px; background: radial-gradient(closest-side, rgba(4, 22, 24, 0.82), rgba(4, 22, 24, 0.55) 70%, transparent); }
-.endcard h1 { margin: 0; font-family: var(--serif); font-weight: 500; font-size: clamp(26px, 3.1vw + 8px, 64px); line-height: 1.12; text-shadow: 0 4px 30px rgba(0, 0, 0, 0.5); }
+.endcard h1 { margin: 0; font-family: var(--serif); font-weight: 500; font-size: clamp(26px, 3.1vw + 8px, 64px); line-height: 1.12; text-shadow: 0 4px 30px rgba(0, 0, 0, 0.5); text-wrap: balance; }
 .endcard h1 span { color: var(--amber); }
 .endcard .tag-line { margin: 0.8em 0 0; font-size: clamp(15px, 1vw + 8px, 26px); color: var(--mint); letter-spacing: 0.04em; }
 .endcard .fine { margin-top: 1.4em; font-size: var(--fs-tag); color: var(--ivory-dim); }
@@ -138,13 +161,16 @@ body.zh .zh-line { display: block; font-size: 0.86em; margin-top: 3px; opacity: 
 #chapter-chip .num { display: inline-block; color: var(--amber); font-weight: 700; margin-right: 0.8em; letter-spacing: 0.1em; }
 #chapter-chip .title { color: var(--ivory); font-family: var(--serif); font-size: 1.2em; }
 #chapter-chip .zh-line { margin-left: 2.6em; }
-#drama-badge { font-size: calc(var(--fs-tag) * 0.85); letter-spacing: 0.2em; text-transform: uppercase; color: var(--amber); border: 1px solid rgba(242, 163, 58, 0.45); border-radius: 999px; padding: 0.35em 0.95em; background: rgba(4, 26, 28, 0.5); }
-body.at-start #hud { opacity: 0; }
+#drama-badge { font-size: calc(var(--fs-tag) * 0.85); letter-spacing: 0.2em; text-transform: uppercase; color: var(--amber); border: 1px solid rgba(242, 163, 58, 0.45); border-radius: 999px; padding: 0.35em 0.95em; background: rgba(4, 26, 28, 0.5); transition: opacity 0.6s; }
+body.at-start #hud, body.at-end #hud { opacity: 0; }
+body.drama-intro #drama-badge { opacity: 0; } /* the opening card says it; the corner badge takes over after */
 
 /* ---------- captions ---------- */
-#captions { position: absolute; left: 50%; bottom: 112px; transform: translateX(-50%); width: min(1100px, 92vw); text-align: center; pointer-events: none; transition: bottom 0.45s ease; }
+#captions { position: absolute; left: 50%; bottom: 112px; transform: translateX(-50%); width: min(1100px, 92vw); text-align: center; pointer-events: none; transition: bottom 0.45s ease, opacity 0.3s; }
+#captions.on-screen { opacity: 0; } /* a card on screen already shows this line */
 body.idle #captions { bottom: 36px; }
-#captions p { margin: 0.25em auto 0; width: fit-content; max-width: 100%; padding: 0.22em 0.7em; border-radius: 8px; background: rgba(4, 22, 24, 0.72); line-height: 1.38; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+#captions p { margin: 0.2em auto 0; max-width: 100%; line-height: 1.5; text-wrap: balance; }
+#captions p span { padding: 0.12em 0.55em; border-radius: 7px; background: rgba(4, 22, 24, 0.74); box-decoration-break: clone; -webkit-box-decoration-break: clone; }
 #captions p:empty { display: none; }
 #captions .en { font-size: var(--fs-cap); }
 #captions .zh { font-size: calc(var(--fs-cap) * 0.92); color: #fff6e2; display: none; }
@@ -158,7 +184,7 @@ body.no-cc #captions .en { display: none; }
 #start[hidden], #error[hidden] { display: none; }
 .start-inner { width: 100%; max-width: 880px; text-align: center; overflow-wrap: break-word; }
 .kicker { margin: 0 0 1em; font-size: var(--fs-tag); letter-spacing: 0.3em; text-transform: uppercase; color: var(--mint); }
-#start h1 { margin: 0; font-family: var(--serif); font-weight: 500; font-size: clamp(30px, 3.6vw + 10px, 70px); line-height: 1.08; }
+#start h1 { margin: 0; font-family: var(--serif); font-weight: 500; font-size: clamp(30px, 3.6vw + 10px, 70px); line-height: 1.08; text-wrap: balance; }
 #start h1 span { color: var(--amber); }
 .zh-title { margin: 0.5em 0 0; color: var(--ivory-dim); font-size: clamp(15px, 1vw + 9px, 24px); letter-spacing: 0.08em; }
 .premise { margin: 1.4em auto 0; max-width: 640px; color: var(--ivory-dim); font-size: clamp(15px, 0.6vw + 10px, 19px); line-height: 1.55; }
@@ -240,6 +266,8 @@ body.playing #btn-play .i-pause { display: block; }
   #btn-voice { font-size: 0; gap: 0; }
   button.icon, button.text, button.toggle { padding: 0 7px; }
   #chapter-chip .title { font-size: 1.05em; }
+  #hud { flex-direction: column-reverse; align-items: flex-start; gap: 8px; }
+  #chapter-chip.intro { transform: scale(1.3); }
   #time { display: none; }
   #captions { bottom: 100px; }
   .lead { white-space: normal; }

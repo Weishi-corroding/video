@@ -1,7 +1,8 @@
 // Narrative data: chapters, timed narration cues (English + Simplified Chinese),
 // and the on-screen wording shared by the scenes.
 // Times are in seconds on the master timeline. Scene code references cues by id,
-// so retiming a cue here moves the matching animation with it.
+// so retiming a cue here moves the matching animation with it. onScreen: a card
+// shows this line verbatim, so the caption steps aside while it is up.
 
 export const DURATION = 420;
 
@@ -18,7 +19,7 @@ export const CHAPTERS = [
 export const CUES = [
   // 01 One Tool, Two Approaches
   { id: '1a', start: 1.0,  end: 4.8,  en: 'A dramatization: two fictional students, one shared AI tool.', zh: '情景演绎：两位虚构的学生，共用一个 AI 工具。' },
-  { id: '1b', start: 5.4,  end: 12.2, en: 'Their question: if students who use AI receive higher grades, does that prove AI improves learning?', zh: '他们的问题是：如果使用 AI 的学生成绩更高，这能否证明 AI 促进了学习？' },
+  { id: '1b', onScreen: true, start: 5.4,  end: 12.2, en: 'Their question: if students who use AI receive higher grades, does that prove AI improves learning?', zh: '他们的问题是：如果使用 AI 的学生成绩更高，这能否证明 AI 促进了学习？' },
   { id: '1c', start: 13.0, end: 19.6, en: 'Student A asks the AI for a finished answer. It arrives fast, fluent, and well organized.', zh: '学生 A 让 AI 直接给出完整答案。答案来得很快，流畅而有条理。' },
   { id: '1d', start: 20.4, end: 26.2, en: 'Student B writes a rough first attempt, then asks the AI to critique it.', zh: '学生 B 先写出一个粗略的初稿，再请 AI 对它提出批评。' },
   { id: '1e', start: 27.0, end: 31.8, en: 'Then the teacher asks a follow-up: walk me through your reasoning.', zh: '接着，老师追问：请讲讲你的推理过程。' },
@@ -41,7 +42,7 @@ export const CUES = [
   { id: '2l', start: 102.0, end: 109.4, en: 'When only the final product is graded, efficiency can quietly replace the thinking it was meant to support.', zh: '当只有最终成果被评分时，效率可能悄悄取代它本应支持的思考。' },
 
   // 03 Different Tasks, Different Uses
-  { id: '3a', start: 110.8, end: 114.0, en: 'Different tasks ask different things of a learner.', zh: '不同的任务，对学习者的要求也不同。' },
+  { id: '3a', onScreen: true, start: 110.8, end: 114.0, en: 'Different tasks ask different things of a learner.', zh: '不同的任务，对学习者的要求也不同。' },
   { id: '3b', start: 114.6, end: 121.0, en: 'The first station is about understanding a concept, such as correlation versus causation.', zh: '第一站是理解一个概念，比如相关与因果的区别。' },
   { id: '3c', start: 121.4, end: 129.4, en: 'AI can offer examples and analogies. The learner still has to explain the idea, and notice where an analogy breaks.', zh: 'AI 可以提供例子和类比。但学习者仍要自己解释这个概念，并看出类比在哪里失效。' },
   { id: '3d', start: 130.0, end: 134.6, en: 'The second station is about solving a problem.', zh: '第二站是解决一个问题。' },
@@ -51,7 +52,7 @@ export const CUES = [
   { id: '3h', start: 149.8, end: 154.0, en: 'AI can raise counterarguments and question the evidence.', zh: 'AI 可以提出反驳，质疑证据。' },
   { id: '3i', start: 154.4, end: 160.8, en: 'But choosing the claim, weighing the evidence, and standing behind the conclusion remain the learner’s work.', zh: '但选择论点、权衡证据、为结论负责，仍然是学习者自己的工作。' },
   { id: '3j', start: 161.6, end: 165.6, en: 'So “Should I use AI?” is too vague a question.', zh: '所以，“我该不该用 AI？”这个问题太笼统了。' },
-  { id: '3k', start: 166.0, end: 171.6, en: 'A better one: for this task, what must I be able to do myself?', zh: '更好的问题是：对于这项任务，哪些事我必须自己能做？' },
+  { id: '3k', onScreen: true, start: 166.0, end: 171.6, en: 'A better one: for this task, what must I be able to do myself?', zh: '更好的问题是：对于这项任务，哪些事我必须自己能做？' },
   { id: '3l', start: 172.4, end: 177.2, en: 'Pause for a moment. Think of a task you’re working on now.', zh: '停下来想一想。想一项你正在做的任务。' },
   { id: '3m', start: 184.2, end: 189.7, en: 'The answer depends on the task, and on what you’ll need to show later.', zh: '答案取决于任务本身，也取决于你之后需要展示什么。' },
 

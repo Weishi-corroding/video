@@ -33,12 +33,12 @@ export function build(ctx) {
   const jL = at(box(0.84, 0.14, 0.9, MAT.ivory2, 0.03), -0.42, 0.57, 0);
   const jR = at(box(0.84, 0.14, 0.9, MAT.ivory2, 0.03), 0.42, 0.57, 0);
   const crack = at(box(0.09, 0.2, 0.96, glow(COLORS.amber, 2.6), 0.01), 0, 0.57, 0);
-  const brace = at(box(1.72, 0.15, 0.96, MAT.mintGlow, 0.035), 0, 0.57, 0);
+  const brace = at(box(1.72, 0.15, 0.96, MAT.mintSoft, 0.035), 0, 0.57, 0);
   A.add(fA, jL, jR, crack, brace);
   const U = at(new THREE.Group(), 0.85, 0.64, 0); // pivot at the joint's right edge
   const u1 = at(box(1.5, 0.45, 1.0, MAT.ivory, 0.04), -0.85, 0.225, 0);
   const u2 = at(box(1.2, 0.4, 0.86, MAT.ivory, 0.04), -0.85, 0.65, 0);
-  const u3 = at(box(0.9, 0.32, 0.7, std(COLORS.amber, { roughness: 0.25, metalness: 0.15, emissive: COLORS.amber, emissiveIntensity: 0.35 }), 0.05), -0.85, 1.01, 0);
+  const u3 = at(box(0.9, 0.32, 0.7, std(COLORS.amber, { roughness: 0.4, metalness: 0.15, emissive: COLORS.amber, emissiveIntensity: 0.12 }), 0.05), -0.85, 1.01, 0);
   const wA = at(new THREE.Group(), -0.85, 1.17, 0);
   U.add(u1, u2, u3, wA);
   A.add(U);
@@ -75,7 +75,7 @@ export function build(ctx) {
     return g;
   });
   const buttresses = [-1, 1].map((sg) => {
-    const b = at(box(0.3, 0.95, 0.5, MAT.mintGlow, 0.04), sg * 1.38, 0.78, 0);
+    const b = at(box(0.3, 0.95, 0.5, MAT.mintSoft, 0.04), sg * 1.38, 0.78, 0);
     b.rotation.z = -sg * 0.32;
     B.add(b);
     return b;
@@ -99,6 +99,11 @@ export function build(ctx) {
   const loadA = weight(), loadB = weight();
   wA.add(loadA);
   wB.add(loadB);
+  const dust = Array.from({ length: 14 }, (_, i) => {
+    const d = mesh(new THREE.SphereGeometry(0.03 + hash(i + 40) * 0.03, 8, 6), MAT.ivory3, { cast: false });
+    A.add(d);
+    return d;
+  });
   const ringA = at(mesh(new THREE.TorusGeometry(1.15, 0.03, 10, 80), MAT.amberGlow, { cast: false }), 0, 0.57, 0);
   ringA.rotation.x = Math.PI / 2;
   A.add(ringA);
@@ -161,21 +166,35 @@ export function build(ctx) {
     }
     const impact = (t > sC + 3.0 && t < sC + 3.8) ? Math.sin((t - sC - 3.0) * 30) * 0.015 * (1 - (t - sC - 3.0) / 0.8) : 0;
 
-    // A fails at the joint, later rebuilt with a mint brace
-    const sD = c['4d'].s;
-    const fail = ramp(t, sD + 0.4, sD + 1.6, ease.out);
+    // A fails at the joint in one decisive drop: the left joint block is knocked
+    // out and tumbles off the foundation, the tower lurches, bounces and settles
+    // crooked. Later it is rebuilt with a mint brace.
+    const sD = c['4d'].s, tHit = sD + 0.95;
+    const fail = ramp(t, sD + 0.4, tHit, ease.in);
     const fix = ramp(t, sI + 0.8, sI + 2.2);
     const crackOpen = fail * (1 - fix);
-    offset(jL, -0.34 * crackOpen, -0.05 * crackOpen, 0.08 * crackOpen);
+    const kick = ramp(t, sD + 0.5, sD + 1.1, ease.out), tumble = ramp(t, sD + 0.9, sD + 1.5, ease.in);
+    offset(jL, -0.88 * kick, -0.05 * kick - 0.45 * tumble, 0.12 * kick);
+    jL.rotation.z = 0.4 * kick + (Math.PI - 0.4) * tumble; // lands flat, upside down
     offset(jR, 0.08 * crackOpen, 0, 0);
-    jL.rotation.z = 0.32 * crackOpen;
     crack.visible = fail > 0.02 && fix < 0.98;
     crack.scale.y = 0.4 + 0.6 * crackOpen;
+    setGlow(crack, 2.6 + 3.0 * Math.exp(-Math.max(0, t - tHit) * 3) * (t > tHit ? 1 : 0));
     fade(jL, 1 - fix); fade(jR, 1 - fix);
+    const since = t - tHit;
+    const bounce = since > 0 ? Math.sin(since * 16) * Math.exp(-since * 4.5) * 0.06 : 0;
     const shake = Math.sin(t * 22) * 0.012 * win(t, sD + 0.4, sD + 2.6, 0.3);
-    U.rotation.z = 0.14 * crackOpen + shake + impact;
-    U.position.x = 0.85 - 0.12 * crackOpen;
-    U.position.y = 0.64 - 0.06 * crackOpen;
+    U.rotation.z = (0.2 * fail + bounce) * (1 - fix) + shake + impact;
+    U.position.x = 0.85 - 0.14 * crackOpen;
+    U.position.y = 0.64 - 0.08 * crackOpen;
+    const kd = clamp01(since / 1.4);
+    dust.forEach((d, i) => {
+      d.visible = kd > 0 && kd < 1;
+      if (!d.visible) return;
+      const a = hash(i) * Math.PI * 2, sp = 0.35 + hash(i + 20) * 0.45, r = sp * ease.out(kd);
+      d.position.set(-0.2 + Math.cos(a) * r, 0.57 + 0.5 * kd * sp - 0.45 * kd * kd, 0.25 + Math.sin(a) * r * 0.6);
+      fade(d, 1 - kd);
+    });
     pop(brace, ramp(t, sI + 0.4, sI + 1.4));
     offset(brace, 0, 0, (1 - ramp(t, sI + 0.4, sI + 1.6, ease.out)) * 1.6);
     const pulse = 0.5 + 0.5 * Math.sin(t * 4);
@@ -227,7 +246,7 @@ export function build(ctx) {
     L.legend.set(win(t, sJ + 0.4, 61, 0.6));
   }
 
-  const camera = camTrack([
+  const track = camTrack([
     { t: 0, p: [0, 6.6, 13.4], l: [0, 1.2, 0] },
     { t: c['4b'].s, p: [0, 5.8, 11.6], l: [0, 1.3, 0] },
     { t: c['4c'].e, p: [0, 5.6, 11.2], l: [0, 1.4, 0] },
@@ -238,6 +257,16 @@ export function build(ctx) {
     { t: c['4i'].s + 1.6, p: [0, 5.8, 11.6], l: [0, 1.3, 0] },
     { t: 60, p: [0, 6.0, 12.0], l: [0, 1.3, 0] },
   ]);
+  // a short, decaying jolt when A's joint gives way
+  const camera = (t, p, l) => {
+    track(t, p, l);
+    const k = t - (c['4d'].s + 0.95);
+    if (k > 0 && k < 1) {
+      const a = Math.exp(-k * 5) * 0.07;
+      p.x += Math.sin(k * 47) * a;
+      p.y += Math.sin(k * 61 + 1) * a;
+    }
+  };
 
   return { update, camera };
 }

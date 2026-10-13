@@ -234,8 +234,12 @@ export function chair() {
   return g;
 }
 
-/** Abstract miniature person. seated=true puts the hips at chair height. */
-export function figure({ seated = true, scale = 1, mat = MAT.ivory } = {}) {
+/**
+ * Abstract miniature person. seated=true puts the hips at chair height.
+ * who='A' adds a scarf and who='B' a knit cap: neutral silhouette markers, so
+ * the two students stay recognisable without colour-coding either of them.
+ */
+export function figure({ seated = true, scale = 1, mat = MAT.ivory, who } = {}) {
   const g = new THREE.Group();
   const body = mesh(new THREE.CapsuleGeometry(0.17, seated ? 0.3 : 0.62, 6, 16), mat);
   const bodyY = seated ? 0.47 + 0.32 : 0.17 + 0.31;
@@ -249,6 +253,20 @@ export function figure({ seated = true, scale = 1, mat = MAT.ivory } = {}) {
   if (seated) {
     // thighs reaching forward to the desk
     g.add(at(box(0.3, 0.12, 0.4, mat, 0.05), 0, 0.53, 0.14));
+  }
+  if (who === 'A') {
+    const scarf = at(mesh(new THREE.TorusGeometry(0.135, 0.05, 10, 28), MAT.ivory3), 0, torsoTop - 0.03, 0);
+    scarf.rotation.x = Math.PI / 2;
+    const tail = at(box(0.09, 0.24, 0.035, MAT.ivory3, 0.015), 0.07, torsoTop - 0.17, 0.19);
+    tail.rotation.z = 0.12;
+    g.add(scarf, tail);
+  } else if (who === 'B') {
+    const cap = at(mesh(new THREE.SphereGeometry(0.158, 24, 10, 0, Math.PI * 2, 0, Math.PI / 2), MAT.ivory3), 0, 0.16, 0);
+    const band = at(mesh(new THREE.TorusGeometry(0.155, 0.028, 8, 32), MAT.ivory3), 0, 0.17, 0);
+    band.rotation.x = Math.PI / 2;
+    const pom = sphere(0.045, MAT.ivory3, 12);
+    pom.position.y = 0.33;
+    headPivot.add(cap, band, pom);
   }
   g.scale.setScalar(scale);
   g.userData.head = headPivot;
@@ -332,7 +350,7 @@ export function plinth(r = 7.5, h = 0.5) {
   top.castShadow = false;
   const rim = at(mesh(new THREE.TorusGeometry(r, 0.03, 8, 160), MAT.mintSoft, { cast: false }), 0, 0.0, 0);
   rim.rotation.x = Math.PI / 2;
-  fade(rim, 0.55);
+  fade(rim, 0.28);
   g.add(top, rim);
   return g;
 }
@@ -373,8 +391,8 @@ export function packet(mat = MAT.amberGlow, s = 0.12) {
   return box(s, s * 0.6, s * 1.3, mat, 0.02);
 }
 
-/** A seated student at a desk on a low platform. Faces local +z. */
-export function studySpace({ seed = 1, platform = [3.0, 0.14, 2.4] } = {}) {
+/** A seated student at a desk on a low platform. Faces local +z. who: 'A' | 'B'. */
+export function studySpace({ seed = 1, platform = [3.0, 0.14, 2.4], who } = {}) {
   const g = new THREE.Group();
   const [pw, ph, pd] = platform;
   const base0 = at(box(pw, ph, pd, MAT.ivory2, 0.05), 0, ph / 2, 0);
@@ -382,7 +400,7 @@ export function studySpace({ seed = 1, platform = [3.0, 0.14, 2.4] } = {}) {
   const y0 = ph;
   const d = at(desk(), 0, y0, 0.35);
   const c = at(chair(), 0, y0, -0.25);
-  const f = at(figure({ seated: true }), 0, y0, -0.28);
+  const f = at(figure({ seated: true, who }), 0, y0, -0.28);
   const top = y0 + d.userData.top;
   const lp = at(laptop(), 0.1, top, 0.5); // lid at the far edge, screen facing the student
   const lmp = at(lamp(), -0.5, top, 0.55);

@@ -33,8 +33,8 @@ export class World {
     ground.receiveShadow = true;
     scene.add(ground);
     const path = new THREE.Mesh(
-      new THREE.TorusGeometry(RING_R, 0.05, 6, 360),
-      new THREE.MeshBasicMaterial({ color: COLORS.mint, transparent: true, opacity: 0.22, fog: true }),
+      new THREE.TorusGeometry(RING_R, 0.03, 6, 360),
+      new THREE.MeshBasicMaterial({ color: COLORS.mint, transparent: true, opacity: 0.12, fog: true }),
     );
     path.rotation.x = Math.PI / 2;
     path.position.y = -0.48;
@@ -101,6 +101,7 @@ export class World {
     this._p0 = new THREE.Vector3();
     this._l0 = new THREE.Vector3();
     this.activeLabels = new Map();
+    this.dip = 0;
   }
 
   /** Bring every visible set to the state for master time t. */
@@ -137,6 +138,9 @@ export class World {
     this.activeLabels.set(ci, 1);
     if (inTransition) this.activeLabels.set(ci - 1, 1 - clamp01(lt / 0.8));
 
+    // a soft dip toward the background mid-glide, so the half-built next set is never the subject
+    this.dip = inTransition ? 0.72 * Math.pow(Math.sin(Math.PI * clamp01(lt / TRANSITION)), 2) : 0;
+
     this.dust.rotation.y = t * 0.004;
     this.dust.position.y = Math.sin(t * 0.1) * 0.3;
     this.chapterIndex = ci;
@@ -162,7 +166,7 @@ export class World {
       const kl = ease.inOut(Math.min(1, lt / (TRANSITION * 0.62)));
       p.lerpVectors(this._p0, p, kp);
       l.lerpVectors(this._l0, l, kl);
-      p.y += Math.sin(Math.PI * kp) * 3.0; // a gentle lift between sets
+      p.y += Math.sin(Math.PI * kp) * 1.4; // a gentle lift between sets
     }
     // narrower screens: step back so the set still fits
     const fit = Math.min(2.2, Math.pow(Math.max(1, (16 / 9) / aspect), 0.8));

@@ -93,7 +93,7 @@ export function build(ctx) {
     [[-5.0, y1, 0.9], [-3.9, y1, 0.4], [-2.8, ymid, -0.05], [-1.6, y2, -0.5], [0.5, y2, -0.75], [1.6, y2, -0.85]],
     [[0, 0], [c['5b'].s + 0.6, 0], [c['5c'].s + 3.2, 0.78], [c['5h'].s, 0.78], [c['5i'].e, 0.97]],
   );
-  const figA = figure({ seated: false }), figB = figure({ seated: false });
+  const figA = figure({ seated: false, who: 'A' }), figB = figure({ seated: false, who: 'B' });
   G.add(figA, figB);
   const orbA = at(mesh(new THREE.SphereGeometry(0.065, 16, 12), MAT.amberGlow, { cast: false }), 0.36, 1.12, -0.12);
   const orbB = at(mesh(new THREE.SphereGeometry(0.065, 16, 12), MAT.amberGlow, { cast: false }), 0.36, 1.12, -0.12);

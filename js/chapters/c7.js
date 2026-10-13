@@ -11,12 +11,12 @@ export function build(ctx) {
   const { group: G, label, overlay, cues: c } = ctx;
   G.add(plinth(8.4));
 
-  const A = at(studySpace({ seed: 6 }), -3.9, 0, 0.6);
-  const B = at(studySpace({ seed: 7 }), 3.9, 0, 0.6);
+  const A = at(studySpace({ seed: 6, who: 'A' }), -3.9, 0, 0.6);
+  const B = at(studySpace({ seed: 7, who: 'B' }), 3.9, 0, 0.6);
   A.rotation.y = 0.2; B.rotation.y = -0.2;
   G.add(A, B);
   const seam = at(box(1.2, 0.14, 2.2, MAT.ivory2, 0.05), 0, 0.07, 0.75);
-  const seamGlow = at(box(1.0, 0.02, 2.0, MAT.mintGlow, 0.01), 0, 0.15, 0.75);
+  const seamGlow = at(box(0.12, 0.02, 2.0, MAT.mintGlow, 0.01), 0, 0.15, 0.75);
   G.add(seam, seamGlow);
 
   // the either/or seesaw
@@ -96,7 +96,7 @@ export function build(ctx) {
   });
 
   // ---------- labels ----------
-  const qs = ['Under what conditions?', 'What is the central<br>difficulty?', 'What changes<br>over time?', 'How can we test our judgment?'];
+  const qs = ['Under what<br>conditions?', 'What is the central<br>difficulty?', 'What changes<br>over time?', 'How can we test<br>our judgment?'];
   const qzh = ['在什么条件下？', '核心难点是什么？', '随着时间推移，什么在变化？', '我们如何检验自己的判断？'];
   const qCue = ['7c', '7d', '7e', '7f'];
   const L = {
@@ -105,11 +105,11 @@ export function build(ctx) {
     either: label({ html: 'either / or?', anchor: [0, 2.5, -0.6], align: 'below', dy: 8, cls: 'tag small' }),
     q: pillars.map((p, i) => label({ html: qs[i], anchor: [p.position.x, p.userData.top + 0.15, p.position.z], cls: 'question-tag', zh: qzh[i] })),
     grade: label({ html: 'A higher grade, alone', anchor: medal, dy: -26, cls: 'tag amber small', zh: '单凭一次更高的成绩' }),
-    decide: label({ html: '<b>Decide</b> how to use the tool', anchor: decision, dx: -34, align: 'right', cls: 'tag mint', zh: '决定如何使用工具' }),
-    evaluate: label({ html: '<b>Check</b> whether the decision worked', anchor: decision, dx: 34, align: 'left', cls: 'tag amber', zh: '检验这个决定是否有效' }),
+    decide: label({ html: '<b>Decide</b> how to use the tool', anchor: [0, 0.2, 1.75], dx: -30, align: 'right', cls: 'tag mint', zh: '决定如何使用工具' }),
+    evaluate: label({ html: '<b>Check</b> whether the decision worked', anchor: [0, 0.2, 1.75], dx: 30, align: 'left', cls: 'tag amber', zh: '检验这个决定是否有效' }),
     tagA: label({ html: '<b>A</b>', anchor: [-1.9, 1.9, 0.6], cls: 'tag ivory small' }),
     tagB: label({ html: '<b>B</b>', anchor: [1.9, 1.9, 0.6], cls: 'tag ivory small' }),
-    end: overlay(`<div class="endcard"><h1>Does AI Make Us Smarter<span>—</span>or More Dependent?</h1><p class="tag-line">Ask better questions. Decide. Test. Revise.</p><p class="fine">A dramatization. The students are fictional; no performance data is shown.</p></div>`, 'center-mid', 'AI 让我们更聪明，还是更依赖？提出更好的问题。做出决定。检验。修正。'),
+    end: overlay(`<div class="endcard"><h1>Does AI Make Us Smarter&#8288;<span>—</span>or More Dependent?</h1><p class="tag-line">Ask better questions. Decide. Test. Revise.</p><p class="fine">A dramatization. The students are fictional; no performance data is shown.</p></div>`, 'center-mid', 'AI 让我们更聪明，还是更依赖？提出更好的问题。做出决定。检验。修正。'),
   };
 
   function update(lt) {

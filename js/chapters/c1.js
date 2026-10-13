@@ -11,9 +11,9 @@ export function build(ctx) {
   const { group: G, label, overlay, cues: c } = ctx;
   G.add(plinth(7.6));
 
-  const A = at(studySpace({ seed: 1 }), -3.1, 0, 0.5);
+  const A = at(studySpace({ seed: 1, who: 'A' }), -3.1, 0, 0.5);
   A.rotation.y = 0.42;
-  const B = at(studySpace({ seed: 2 }), 3.1, 0, 0.5);
+  const B = at(studySpace({ seed: 2, who: 'B' }), 3.1, 0, 0.5);
   B.rotation.y = -0.42;
   G.add(A, B);
 
@@ -95,6 +95,14 @@ export function build(ctx) {
   const chA = chain(-3.0, ['solid', 'gap', 'solid']);
   const chB = chain(3.0, ['solid', 'thin', 'gap']);
 
+  // hesitation marks ride on the heads, so they follow the tilt
+  const thinkAt = (space) => {
+    const o = at(new THREE.Object3D(), 0, 0.42, 0);
+    space.userData.figure.userData.head.add(o);
+    return o;
+  };
+  const thinkA = thinkAt(A), thinkB = thinkAt(B);
+
   // ---------- labels ----------
   const L = {
     drama: overlay(`<div class="badge-big"><b>Dramatization</b><span>Fictional students · no real data</span></div>`, 'center-top', '情景演绎 · 虚构学生 · 无真实数据'),
@@ -108,12 +116,14 @@ export function build(ctx) {
     gotB: label({ html: '<b>Critique</b><br>questions · gaps · counterexamples', anchor: [4.2, 0.9, 1.5], dx: 20, align: 'left', cls: 'tag mint' }),
     teacher: label({ html: '“Walk me through your reasoning.”', anchor: [0, 1.75, 3.4], cls: 'speech teacher' }),
     tchTag: label({ html: 'Teacher', anchor: [0, 0.0, 3.4], dy: 34, cls: 'tag ivory small' }),
-    chA0: label({ html: 'higher grades', anchor: chA.parts[0], dy: -20, cls: 'tag small' }),
-    chA2: label({ html: 'AI improves learning', anchor: chA.parts[2], dy: -20, cls: 'tag small' }),
-    gapA: label({ html: '<b>Gap:</b> correlation ≠ causation', anchor: chA.parts[1], dy: 38, align: 'below', cls: 'tag amber' }),
-    chB0: label({ html: 'plausible claim', anchor: chB.parts[0], dy: -20, cls: 'tag small' }),
-    chB2: label({ html: 'other explanations?', anchor: chB.parts[2], dy: -20, cls: 'tag small amber' }),
-    gapB: label({ html: '<b>Gap:</b> thin evidence, rivals unanswered', anchor: chB.parts[1], dy: 38, align: 'below', cls: 'tag amber' }),
+    chA0: label({ html: 'higher grades', anchor: chA.parts[0], dy: 20, align: 'below', cls: 'tag small' }),
+    chA2: label({ html: 'AI improves learning', anchor: chA.parts[2], dy: 20, align: 'below', cls: 'tag small' }),
+    gapA: label({ html: '<b>Gap:</b> correlation ≠ causation', anchor: chA.parts[1], dy: -24, cls: 'tag amber' }),
+    chB0: label({ html: 'plausible claim', anchor: chB.parts[0], dy: 20, align: 'below', cls: 'tag small' }),
+    chB2: label({ html: 'other explanations?', anchor: chB.parts[2], dy: 20, align: 'below', cls: 'tag small amber' }),
+    gapB: label({ html: '<b>Gap:</b> thin evidence, rivals unanswered', anchor: chB.parts[1], dy: -24, cls: 'tag amber' }),
+    thinkA: label({ html: '···', anchor: thinkA, cls: 'tag ivory thought' }),
+    thinkB: label({ html: '···', anchor: thinkB, cls: 'tag ivory thought' }),
   };
 
   const tmp = new THREE.Vector3();
@@ -181,9 +191,10 @@ export function build(ctx) {
     // Hesitation: heads tilt, at different moments
     const sH = c['1f'].s;
     const hA = win(t, sH, 45, 0.6), hB = win(t, sH + 0.5, 45, 0.6);
-    A.userData.figure.userData.head.rotation.z = hA * (0.18 + Math.sin(t * 2.2) * 0.05);
-    B.userData.figure.userData.head.rotation.x = hB * (0.22 + Math.sin(t * 1.7 + 1) * 0.04);
-    A.userData.figure.userData.head.rotation.x = 0.1 * hA;
+    A.userData.figure.userData.head.rotation.z = hA * (0.36 + Math.sin(t * 2.2) * 0.06);
+    A.userData.figure.userData.head.rotation.x = 0.12 * hA;
+    B.userData.figure.userData.head.rotation.z = -hB * (0.3 + Math.sin(t * 1.7 + 1) * 0.05);
+    B.userData.figure.userData.head.rotation.x = 0.22 * hB;
 
     // Reasoning chains
     const sG = c['1g'].s, sR = c['1h'].s;
@@ -204,12 +215,14 @@ export function build(ctx) {
     L.question.set(win(t, c['1b'].s, c['1c'].s - 0.2, 0.6));
     // name tags step aside while the question card is up
     const sQ = c['1b'].s;
-    L.tagA.set(win(t, 2.4, sQ, 0.4) + win(t, sA - 0.6, c['1f'].s, 0.6));
-    L.tagB.set(win(t, 2.8, sQ, 0.4) + win(t, sA - 0.6, c['1f'].s, 0.6));
+    // name tags step aside while their own student is speaking
+    const askA = win(t, sA + 0.2, sA + 3.0, 0.4), askB = win(t, sB + 1.6, sB + 4.4, 0.4);
+    L.tagA.set((win(t, 2.4, sQ, 0.4) + win(t, sA - 0.6, c['1f'].s, 0.6)) * (1 - askA));
+    L.tagB.set((win(t, 2.8, sQ, 0.4) + win(t, sA - 0.6, c['1f'].s, 0.6)) * (1 - askB));
     L.ai.set(win(t, 3.4, sQ, 0.4));
-    L.askA.set(win(t, sA + 0.2, sA + 3.0, 0.4));
+    L.askA.set(askA);
     L.gotA.set(win(t, sA + 4.4, sB + 0.4, 0.5));
-    L.askB.set(win(t, sB + 1.6, sB + 4.4, 0.4));
+    L.askB.set(askB);
     L.gotB.set(win(t, sB + 5.0, sT + 0.4, 0.5));
     L.teacher.set(win(t, sT + 0.6, sH + 0.3, 0.4));
     L.tchTag.set(win(t, sT + 0.6, sH + 0.3, 0.4));
@@ -218,6 +231,8 @@ export function build(ctx) {
     L.chB0.set(chainB); L.chB2.set(chainB);
     L.gapA.set(win(t, sG + 0.4, 45.5, 0.5));
     L.gapB.set(win(t, sR + 0.4, 45.5, 0.5));
+    L.thinkA.set(win(t, sH + 0.1, sH + 2.8, 0.3));
+    L.thinkB.set(win(t, sH + 0.6, sH + 3.0, 0.3));
   }
 
   const camera = camTrack([

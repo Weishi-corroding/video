@@ -19,7 +19,6 @@ export function build(ctx) {
     g.add(hex);
     const ring = at(mesh(new THREE.TorusGeometry(1.75, 0.022, 8, 6), glow(COLORS.mint, 0.3), { cast: false }), 0, 0.25, 0);
     ring.rotation.x = Math.PI / 2;
-    ring.rotation.z = Math.PI / 6;
     g.add(ring);
     const learner = at(figure({ seated: false, scale: 0.95 }), -1.25, 0.24, 0.85);
     learner.rotation.y = 0.6;
@@ -105,16 +104,18 @@ export function build(ctx) {
   S3.add(buttress);
 
   // ---- labels ----
-  const card = (title, ai, me) =>
-    `<div class="callout"><h4>${title}</h4><div class="row ai"><span>AI can</span>${ai}</div><div class="row me"><span>The learner must</span>${me}</div></div>`;
+  // Chinese sits inside each row of the card, under the English it translates
+  const zhl = (text) => `<i class="zh-line" lang="zh-Hans">${text}</i>`;
+  const card = ([title, titleZh], [ai, aiZh], [me, meZh]) =>
+    `<div class="callout"><h4>${title}${zhl(titleZh)}</h4><div class="row ai"><span>AI can</span>${ai}${zhl(aiZh)}</div><div class="row me"><span>The learner must</span>${me}${zhl(meZh)}</div></div>`;
   const L = {
     lead: overlay('<div class="lead">Different tasks ask different things of a learner</div>', 'center-top', '不同的任务，对学习者的要求也不同'),
     t1: label({ html: '<b>Understanding a concept</b>', anchor: [-4.4, 2.45, 0.5], cls: 'tag ivory', zh: '理解概念' }),
     t2: label({ html: '<b>Solving a problem</b>', anchor: [0, 2.45, -0.7], cls: 'tag ivory', zh: '解决问题' }),
     t3: label({ html: '<b>Developing an argument</b>', anchor: [4.4, 2.45, 0.5], cls: 'tag ivory', zh: '构建论证' }),
-    c1: label({ html: card('Understanding a concept', 'offer examples &amp; analogies', 'explain it in their own words · notice where an analogy breaks'), anchor: [-4.4, 2.75, 0.5], cls: 'none', zh: 'AI：提供例子与类比 · 学习者：用自己的话解释，看出类比的局限' }),
-    c2: label({ html: card('Solving a problem', 'give a hint · check a step', 'make the first attempt · verify each step · solve a similar problem alone'), anchor: [0, 2.75, -0.7], cls: 'none', zh: 'AI：给提示、检查步骤 · 学习者：先尝试、逐步验证、独立解决类似问题' }),
-    c3: label({ html: card('Developing an argument', 'raise counterarguments · question the evidence', 'choose the claim · weigh the evidence · stand behind the conclusion'), anchor: [4.4, 2.75, 0.5], cls: 'none', zh: 'AI：提出反驳、质疑证据 · 学习者：选择论点、权衡证据、为结论负责' }),
+    c1: label({ html: card(['Understanding a concept', '理解概念'], ['offer examples &amp; analogies', '提供例子与类比'], ['explain it in their own words · notice where an analogy breaks', '用自己的话解释，看出类比的局限']), anchor: [-4.4, 2.75, 0.5], cls: 'none' }),
+    c2: label({ html: card(['Solving a problem', '解决问题'], ['give a hint · check a step', '给提示、检查步骤'], ['make the first attempt · verify each step · solve a similar problem alone', '先尝试、逐步验证、独立解决类似问题']), anchor: [0, 2.75, -0.7], cls: 'none' }),
+    c3: label({ html: card(['Developing an argument', '构建论证'], ['raise counterarguments · question the evidence', '提出反驳、质疑证据'], ['choose the claim · weigh the evidence · stand behind the conclusion', '选择论点、权衡证据、为结论负责']), anchor: [4.4, 2.75, 0.5], cls: 'none' }),
     breaks: label({ html: 'where the analogy breaks', anchor: breakSpark, dy: -10, cls: 'tag small mint' }),
     hintL: label({ html: 'hint', anchor: hint, dy: -6, cls: 'tag small amber' }),
     alone: label({ html: 'similar problem, alone', anchor: mini, dy: -36, cls: 'tag small mint' }),

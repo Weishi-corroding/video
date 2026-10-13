@@ -73,14 +73,16 @@ export function build(ctx) {
   G.add(token);
 
   // the two students at the centre, AI above
-  const A = at(studySpace({ seed: 4, platform: [2.4, 0.14, 2.0] }), -1.35, 0, 0.1);
-  const B = at(studySpace({ seed: 5, platform: [2.4, 0.14, 2.0] }), 1.35, 0, 0.1);
+  const A = at(studySpace({ seed: 4, platform: [2.4, 0.14, 2.0], who: 'A' }), -1.35, 0, 0.1);
+  const B = at(studySpace({ seed: 5, platform: [2.4, 0.14, 2.0], who: 'B' }), 1.35, 0, 0.1);
   A.rotation.y = 0.12; B.rotation.y = -0.12;
   G.add(A, B);
   const ai = at(aiPanel(), 0, 4.0, -0.9);
   ai.scale.setScalar(0.7);
   G.add(ai);
   const aiGlass = ai.children[0];
+  const aiBars = ai.children.slice(6);
+  const amberC = new THREE.Color(COLORS.amber), mintC = new THREE.Color(COLORS.mint), offC = new THREE.Color(0x5e6f6c);
 
   // work produced without AI
   function chainRow(x, n) {
@@ -149,8 +151,8 @@ export function build(ctx) {
     evDelayed: label({ html: '<b>Delayed</b>', anchor: days[6], dx: 16, align: 'left', cls: 'tag mint' }),
     evIndep: label({ html: '<b>Independent</b>', anchor: ai, dx: -96, dy: -6, align: 'right', cls: 'tag mint' }),
     evTransfer: label({ html: '<b>Transfer</b>', anchor: nodes[3], dx: 30, dy: -40, align: 'left', cls: 'tag mint' }),
-    evidence: overlay('<div class="lead">Evidence of understanding <span class="muted">— stronger than one good grade, still not proof</span></div>', 'center-top', '理解的证据——比一次好成绩更有力，但仍不是证明'),
-    practice: label({ html: '<b>Social practice</b><br>the whole of human activity in which ideas are tested against the world', anchor: [0, -0.4, -14.5], dy: -14, cls: 'tag ivory wide', zh: '社会实践：人类在改造世界的全部活动中检验认识' }),
+    evidence: overlay('<div class="lead">Stronger evidence <span class="muted">— still not proof</span></div>', 'center-top', '更有力的证据——但仍不是证明'),
+    practice: label({ html: '<b>Social practice</b><br>ideas tested against the world', anchor: [0, -0.4, -14.5], dy: -14, cls: 'tag ivory', zh: '社会实践：在改造世界的活动中检验认识' }),
     classroom: label({ html: '<b>Classroom checks</b><br>a small, designed part', anchor: [0, 0.1, R], dy: 10, align: 'below', cls: 'tag mint', zh: '课堂检验：其中经过设计的一小部分' }),
   };
 
@@ -181,7 +183,6 @@ export function build(ctx) {
     rise(B, ramp(t, 0.7, 2.7), 1.0);
     pop(ai, ramp(t, 2.0, 3.4));
     ai.userData.animate(t);
-    ai.position.y = 4.0 + Math.sin(t * 0.9) * 0.05;
     icVerify.rotation.y = Math.sin(t * 0.8) * 0.4;
     icRevise.rotation.y = t * 0.6;
 
@@ -200,10 +201,17 @@ export function build(ctx) {
     // AI switched off
     const sG = c['6g'].s;
     const off = ramp(t, sG + 0.3, sG + 1.6);
+    // switched off: the panel drains to grey and settles a little lower
     setGlow(ai.userData.ring, 1.4 * (1 - off) + 0.05);
+    ai.userData.ring.material.color.copy(mintC).lerp(offC, off);
     ai.userData.frameMat.emissiveIntensity = 1.1 * (1 - off) + 0.08;
-    ai.userData.core.children[1].material.emissiveIntensity = 2.0 * (1 - off) + 0.1;
+    ai.userData.frameMat.color.copy(amberC).lerp(offC, off);
+    const orb = ai.userData.core.children[1].material;
+    orb.emissiveIntensity = 2.0 * (1 - off) + 0.1;
+    orb.color.copy(amberC).lerp(offC, off);
+    aiBars.forEach((b) => setGlow(b, 0.6 * (1 - off) + 0.05));
     fade(aiGlass, 1 - 0.6 * off);
+    ai.position.y = 4.0 - 0.7 * ease.inOut(off) + Math.sin(t * 0.9) * 0.05 * (1 - off);
 
     // their work without AI
     const sH = c['6h'].s, sI = c['6i'].s, sJ = c['6j'].s;

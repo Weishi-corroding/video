@@ -9,6 +9,14 @@ const fmt = (t) => {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 };
 const pad2 = (n) => String(n).padStart(2, '0');
+/** Captions sit in an inline span, so each wrapped line gets its own snug background. */
+function setCaption(p, text) {
+  p.textContent = '';
+  if (!text) return;
+  const span = document.createElement('span');
+  span.textContent = text;
+  p.appendChild(span);
+}
 
 function loadSettings() {
   try { return JSON.parse(localStorage.getItem('essay.settings')) || {}; } catch { return {}; }
@@ -377,8 +385,13 @@ export class UI {
     }
     if (idx !== this.capIndex) {
       this.capIndex = idx;
-      $('#captions .en').textContent = idx >= 0 ? CUES[idx].en : '';
-      $('#captions .zh').textContent = idx >= 0 ? CUES[idx].zh : '';
+      // non-breaking hyphens, so balanced lines never split "AI-allowed" after the dash
+      setCaption($('#captions .en'), idx >= 0 ? CUES[idx].en.replace(/(\w)-(\w)/g, '$1‑$2') : '');
+      setCaption($('#captions .zh'), idx >= 0 ? CUES[idx].zh : '');
+      $('#captions').classList.toggle('on-screen', idx >= 0 && !!CUES[idx].onScreen);
     }
+    // the opening card says "dramatization"; the corner badge takes over once it leaves
+    document.body.classList.toggle('drama-intro', t < CUES[1].start);
+    document.body.classList.toggle('at-end', t >= CUES[CUES.length - 1].end + 0.3);
   }
 }

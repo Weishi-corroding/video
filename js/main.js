@@ -39,7 +39,8 @@ renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.toneMapping = THREE.NeutralToneMapping;
 renderer.toneMappingExposure = 1.45; // applied after bloom, so lit surfaces stay below the bloom threshold
 
-const labels = new LabelLayer(document.getElementById('anchors'), document.getElementById('overlays'));
+const labels = new LabelLayer(document.getElementById('anchors'), document.getElementById('overlays'), document.getElementById('captions'));
+const dip = document.getElementById('dip');
 const world = new World(labels);
 const camera = new THREE.PerspectiveCamera(38, 16 / 9, 0.1, 400);
 
@@ -134,6 +135,7 @@ function frame(now) {
   camera.lookAt(l);
   world.applyEnvironment(l);
   composer.render();
+  dip.style.opacity = world.dip.toFixed(3);
   labels.update(camera, W, H, world.activeLabels);
   ui.update(t);
   requestAnimationFrame(frame);
