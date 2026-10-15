@@ -132,6 +132,10 @@ shaders/       mesh, points and sprite vertex shaders, the lit/unlit fragment sh
                sky, and the post passes (ssao, aoblur, dofpre, dofgather, bright, blur, final)
 ```
 
+[`ARCHITECTURE.md`](ARCHITECTURE.md) (in Chinese) explains how the engine works inside. It covers
+the render targets and passes of a frame, the shading and post-processing algorithms, text layout,
+output, the synthesizer, and the engine's limits.
+
 ## Licence
 
 MIT, like the films in this repository.
